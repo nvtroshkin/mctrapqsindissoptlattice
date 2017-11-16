@@ -39,12 +39,12 @@ static const MKL_Complex8 MULT_T_SIXTH_STEP = MKL_Complex8 { T_STEP_SIZE / 6.0f,
 static const MKL_Complex8 MULT_TWO = MKL_Complex8 { 2.0f, 0.0f };
 static const MKL_Complex8 MULT_ONE = MKL_Complex8 { 1.0f, 0.0f };
 
+static float sqrtsOfPhotonNumbers[MAX_PHOTON_NUMBER + 1];
+
 static const float KAPPA = 1.0f;
 static const float DELTA_OMEGA = 20.0f;
 static const float G = 50.0f;
 static const float LATIN_E = 2.0f;
-
-static float sqrtsOfPhotonNumbers[MAX_PHOTON_NUMBER + 1];
 
 int n(int index) {
 	return index / 2;
@@ -72,8 +72,9 @@ float sigmaPlus(int i, int j) {
 	return 1.0f;
 }
 
+//hbar = 1
 //The Hhat from Petruchionne p363, the (7.11) expression
-MKL_Complex8 Hhat(int i, int j) {
+MKL_Complex8 H(int i, int j) {
 	//the real part of the matrix element
 	float imaginary = 0.0f;
 	for (int k = 0; k < DRESSED_BASIS_SIZE; k++) {
@@ -91,7 +92,7 @@ MKL_Complex8 Hhat(int i, int j) {
 	//the imaginary
 	float real = 0.0;
 	for (int k = 0; k < DRESSED_BASIS_SIZE; k++) {
-		real -= aPlus(i,k) * aPlus(j,k);
+		real -= aPlus(i, k) * aPlus(j, k);
 	}
 
 	real *= KAPPA;
@@ -99,11 +100,12 @@ MKL_Complex8 Hhat(int i, int j) {
 	return {real, imaginary};
 }
 
-//hbar = 1
-//Hhat is a 5-diagonal symmetrical matrix
-//it can be stored by calculating the main and two lower diagonals
-//and stored into the diagonal matrix storage format (https://software.intel.com/en-us/mkl-developer-reference-c-sparse-blas-diagonal-matrix-storage-format)
-void Hhat() {
+int main(int argc, char **argv) {
+	//The basis vectors are enumerated flatly, |photon number>|atom state>, |0>|0>, |0>|1> and etc.
+
+	//Hhat is a 5-diagonal symmetrical matrix
+	//it can be stored by calculating the main and two lower diagonals
+	//and stored into the diagonal matrix storage format (https://software.intel.com/en-us/mkl-developer-reference-c-sparse-blas-diagonal-matrix-storage-format)
 	//calculate square roots
 	float photonNumbers[MAX_PHOTON_NUMBER + 1];
 	for (int k = 0; k < MAX_PHOTON_NUMBER; k++) {
@@ -115,9 +117,11 @@ void Hhat() {
 
 	//diagonals in relation to the main diagonal
 	//only 5
-	const float distance[5] = { -2, -1, 0, 1, 2 };
+	const int distanceLength = 5;
+	const int distance[5] = { -2, -1, 0, 1, 2 };
 
-	MKL_Complex8 values[DRESSED_BASIS_SIZE][5];
+	//the compact diagonals storage
+	MKL_Complex8 HDiagValues[DRESSED_BASIS_SIZE * 5];
 
 	//the diagonals have different lengths. It is convenient to make them
 	//the same length but then some indices violate the array boundaries. We should
@@ -126,13 +130,9 @@ void Hhat() {
 	for (int i = -2; i <= 2; i++) {
 		modifiedLength = DRESSED_BASIS_SIZE + (i > 0 ? 0 : i);
 		for (int j = (i > 0 ? i : 0); j < modifiedLength; j++) {
-			values[j][i] = Hhat(j - i, j);
+			HDiagValues[j * distanceLength + i + 2] = H(j - i, j);
 		}
 	}
-}
-
-int main(int argc, char **argv) {
-	//The basis vectors are enumerated flatly, |photon number>|atom state>, |0>|0>, |0>|1> and etc.
 
 	//Initial samples state is the ground state
 	for (int i = 0; i < MONTE_CARLO_SAMPLES_NUMBER; i++) {
@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
 	}
 
 	//create a random numbers stream
-	int rndNumIndex = 0;//indicates where we are in the buffer
+	int rndNumIndex = 0;		//indicates where we are in the buffer
 	float* rndNumBuff = (float *) scalable_aligned_malloc(
 			RND_NUM_BUFF_SIZE * sizeof(float), SIMDALIGN);
 	VSLStreamStatePtr Stream;
@@ -153,6 +153,10 @@ int main(int argc, char **argv) {
 	vsRngUniform(VSL_RNG_METHOD_UNIFORM_STD, Stream, RND_NUM_BUFF_SIZE,
 			rndNumBuff, 0.0f, 1.0f);
 
+	MKL_Complex8 k1[DRESSED_BASIS_SIZE];
+	MKL_Complex8 k2[DRESSED_BASIS_SIZE];
+	MKL_Complex8 k3[DRESSED_BASIS_SIZE];
+	MKL_Complex8 k4[DRESSED_BASIS_SIZE];
 	for (int sampleIndex = 0; sampleIndex < MONTE_CARLO_SAMPLES_NUMBER;
 			sampleIndex++) {
 		float t = 0;	//each sample starts at t=0
@@ -168,42 +172,50 @@ int main(int argc, char **argv) {
 			for (int j = 0; j < DRESSED_BASIS_SIZE; j++) {
 				//write the f function
 
-				//f(t, psi) = - i Hhat psi
-				//Hhat is a 5-diagonal symmetrical matrix
-				//it can be stored by calculating the main and two lower diagonals
-				//and stored into the diagonal matrix storage format (https://software.intel.com/en-us/mkl-developer-reference-c-sparse-blas-diagonal-matrix-storage-format)
-
-				MKL_Complex8 *k1 = f(t, sample[i]);
+				//k1 = f(t, sample[i]);
+				//to k1
+				mkl_cdiasymv("l", &(DRESSED_BASIS_SIZE), HDiagValues,
+						&(DRESSED_BASIS_SIZE), distance, &distanceLength,
+						sample[i], k1);
 
 				//copy current state to a temporary vector
 				cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, sample[i], NO_INC,
-						VECTOR_BUFF[0], NO_INC);
-				cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_HALF_STEP,
-						k1, NO_INC, VECTOR_BUFF[0], NO_INC);
-				MKL_Complex8 *k2 = f(t + T_STEP_SIZE / 2.0f, VECTOR_BUFF[0]);
+						VECTOR_BUFF[1], NO_INC);
+				cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_HALF_STEP, k1,
+						NO_INC, VECTOR_BUFF[1], NO_INC);
+				//k2 = f(t + T_STEP_SIZE / 2.0f, VECTOR_BUFF[1]);
+				mkl_cdiasymv("l", &(DRESSED_BASIS_SIZE), HDiagValues,
+						&(DRESSED_BASIS_SIZE), distance, &distanceLength,
+						VECTOR_BUFF[1], k2);
 
 				//same but with another temporary vector for the buffer
 				cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, sample[i], NO_INC,
-						VECTOR_BUFF[1], NO_INC);
-				cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_HALF_STEP,
-						k2, NO_INC, VECTOR_BUFF[1], NO_INC);
-				MKL_Complex8 *k3 = f(t + T_STEP_SIZE / 2.0f, VECTOR_BUFF[1]);
+						VECTOR_BUFF[2], NO_INC);
+				cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_HALF_STEP, k2,
+						NO_INC, VECTOR_BUFF[2], NO_INC);
+				//k3 = f(t + T_STEP_SIZE / 2.0f, VECTOR_BUFF[2])
+				mkl_cdiasymv("l", &(DRESSED_BASIS_SIZE), HDiagValues,
+						&(DRESSED_BASIS_SIZE), distance, &distanceLength,
+						VECTOR_BUFF[2], k3);
 
 				cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, sample[i], NO_INC,
-						VECTOR_BUFF[2], NO_INC);
+						VECTOR_BUFF[3], NO_INC);
 				cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_STEP, k3,
-						NO_INC, VECTOR_BUFF[2], NO_INC);
-				MKL_Complex8 *k4 = f(t + T_STEP_SIZE, VECTOR_BUFF[2]);
+						NO_INC, VECTOR_BUFF[3], NO_INC);
+				//k4 = f(t + T_STEP_SIZE, VECTOR_BUFF[3]);
+				mkl_cdiasymv("l", &(DRESSED_BASIS_SIZE), HDiagValues,
+						&(DRESSED_BASIS_SIZE), distance, &distanceLength,
+						VECTOR_BUFF[3], k4);
 
 				//store to k1
-				cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_TWO, k2, NO_INC, k1,
-						NO_INC);
+				cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_TWO, k2, NO_INC,
+						k1, NO_INC);
 				//to k4
-				cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_TWO, k3, NO_INC, k4,
-						NO_INC);
+				cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_TWO, k3, NO_INC,
+						k4, NO_INC);
 				//to k1
-				cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_ONE, k4, NO_INC, k1,
-						NO_INC);
+				cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_ONE, k4, NO_INC,
+						k1, NO_INC);
 				//modify sample[i+1]
 				cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, sample[i], NO_INC,
 						sample[i + 1], NO_INC);
@@ -218,14 +230,14 @@ int main(int argc, char **argv) {
 			//if the state vector at t(i+1) has a less square of the norm then the threshold
 			if (sample[i])
 
-			//then a jump is occurred between t(i) and t(i+1)
-			//calculate the state vector after the jump
-			//store it at t(i+1)
-			//else
-			//make a deterministic evolution step
-			if () {
+				//then a jump is occurred between t(i) and t(i+1)
+				//calculate the state vector after the jump
+				//store it at t(i+1)
+				//else
+				//make a deterministic evolution step
+				if () {
 
-			}
+				}
 		}
 	}
 
