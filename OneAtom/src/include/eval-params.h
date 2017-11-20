@@ -19,4 +19,10 @@ static const float EVAL_TIME = 10.0f;
 static const int TIME_STEPS_NUMBER = 100;		//the total number of steps by the time axis
 static const int MONTE_CARLO_SAMPLES_NUMBER = 100;
 
+// Use typed constants instead of #define
+static const int RND_NUM_BUFF_SIZE = 8 * 1024;
+static const int SIMDALIGN = 1024; //an alignment for memory in a multithreaded environment
+//a constant - initializer of a pseudorandom numbers generator
+#define RANDSEED 777
+
 #endif /* SRC_EVAL_PARAMS_H_ */

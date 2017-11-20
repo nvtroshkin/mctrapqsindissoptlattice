@@ -12,14 +12,13 @@ using namespace testing;
 	ASSERT_FLOAT_EQ(c.imag, expImagine);\
 }
 
-MATCHER_P (ComplexNumberEquals, a, "") {
+MATCHER_P (ComplexNumberEquals, a, ""){
 //	*result_listener << "where the remainder is " << (arg % n);
-	return a.real == arg.real && a.imag == arg.imag;
+return a.real == arg.real && a.imag == arg.imag;
 }
 
-::std::ostream& operator<<(::std::ostream& os, const MKL_Complex8& c)
-{
-    return os << c.real << " + " << c.imag << "i";
+::std::ostream& operator<<(::std::ostream& os, const MKL_Complex8& c) {
+	return os << c.real << " + " << c.imag << "i";
 }
 
 /**
@@ -117,27 +116,122 @@ TEST (sigmaPlus_test, ALL) {
  *
  */
 TEST (H_diagonal_form_test, ALL) {
-	//a temporary vector
-	std::vector<int> *vec = new std::vector<int>();
-
 	MatrixDiagForm diagH = getHhatInDiagForm();
 
 	ASSERT_EQ(diagH.diagDistLength, 5);
 
-	(*vec).assign(diagH.diagsDistances, diagH.diagsDistances + diagH.diagDistLength);
-	ASSERT_THAT(*vec, ElementsAre(-2,-1,0,1,2));
+	std::vector<int> *vec = new std::vector<int>();
+	(*vec).assign(diagH.diagsDistances,
+			diagH.diagsDistances + diagH.diagDistLength);
+	ASSERT_THAT(*vec, ElementsAre(-2, -1, 0, 1, 2));
 
-//	MKL_Complex8 expectedH[] = {A<MKL_Complex8>(), A<MKL_Complex8>(), };
+	std::vector<MKL_Complex8> *cs = new std::vector<MKL_Complex8>();
+	(*cs).assign(diagH.matrix,
+			diagH.matrix + diagH.diagDistLength * diagH.leadDimension);
 
-	MKL_Complex8 c = {1,2};
+	Matcher<MKL_Complex8> matchers[] = { A<MKL_Complex8>(), A<MKL_Complex8>(),
+			ComplexNumberEquals(MKL_Complex8 { 0, 0 }), ComplexNumberEquals(
+					MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 {
+					0, -2 }), A<MKL_Complex8>(), ComplexNumberEquals(
+					MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 {
+					0, 20 }), ComplexNumberEquals(MKL_Complex8 { 0, -50 }),
+			ComplexNumberEquals(MKL_Complex8 { 0, -2 }), ComplexNumberEquals(
+					MKL_Complex8 { 0, -2 }), ComplexNumberEquals(MKL_Complex8 {
+					0, -50 }), ComplexNumberEquals(MKL_Complex8 { -1, 20 }),
+			ComplexNumberEquals(MKL_Complex8 { 0, 0 }), A<MKL_Complex8>(),
+			ComplexNumberEquals(MKL_Complex8 { 0, -2 }), ComplexNumberEquals(
+					MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 {
+					-1, 40 }), A<MKL_Complex8>(), A<MKL_Complex8>() };
+	ASSERT_THAT(*cs, ElementsAreArray(matchers));
+}
 
-	ASSERT_THAT(diagH.matrix, ComplexNumberEquals(c));
+/**
+ * H=
+ *
+ * (0	0	-2i		0)
+ * (0	20i	-50i	-2i)
+ * (-2i	-50i	-1+20i	0)
+ * (0	-2i		0	-1+40i)
+ *
+ * values: {0, 0, -2i, 0, 20i, -50i, -2i, -2i, -50i, -1+20i, 0, -2i, 0, -1+40i}
+ * columns: {0,1,2,0,1,2,3,0,1,2,3,1,2,3}
+ * rowIndex: {0,3,7,11,14}
+ *
+ */
+TEST (H_CSR3_form_test, ALL) {
+	CSR3Matrix hCSR3 = getHInCSR3();
 
-//	ASSERT_THAT(diagH.matrix, testing::ElementsAreArray({MklComplexEq({1,2})}));
+	ASSERT_EQ(hCSR3.rowsNumber, 4);
+
+	//check the total values number
+	ASSERT_EQ(hCSR3.rowIndex[4], 14);
+
+	std::vector<int> *vec = new std::vector<int>();
+	(*vec).assign(hCSR3.columns, hCSR3.columns + 14);
+	ASSERT_THAT(*vec, ElementsAreArray( { 0, 1, 2, 0, 1, 2, 3, 0, 1, 2, 3, 1, 2,
+			3 }));
+
+	(*vec).assign(hCSR3.rowIndex, hCSR3.rowIndex + 5);
+	ASSERT_THAT(*vec, ElementsAreArray( {0,3,7,11,14}));
+
+	std::vector<MKL_Complex8> *cs = new std::vector<MKL_Complex8>();
+	(*cs).assign(hCSR3.values, hCSR3.values + 14);
+
+	Matcher<MKL_Complex8> matchers[] = { ComplexNumberEquals(
+			MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 { 0, 0 }),
+			ComplexNumberEquals(MKL_Complex8 { 0, -2 }), ComplexNumberEquals(
+					MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 {
+					0, 20 }), ComplexNumberEquals(MKL_Complex8 { 0, -50 }), ComplexNumberEquals(
+					MKL_Complex8 { 0, -2 }), ComplexNumberEquals(MKL_Complex8 {
+					0, -2 }), ComplexNumberEquals(MKL_Complex8 { 0, -50 }),
+			ComplexNumberEquals(MKL_Complex8 { -1, 20 }), ComplexNumberEquals(
+					MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 {
+					0, -2 }), ComplexNumberEquals(MKL_Complex8 { 0, 0 }),
+			ComplexNumberEquals(MKL_Complex8 { -1, 40 })};
+	ASSERT_THAT(*cs, ElementsAreArray(matchers));
+}
+
+/**
+ * aPlus =
+ *
+ * (0	0	0	0)
+ * (0	0	0	0)
+ * (1	0	0	0)
+ * (0	1	0	0)
+ *
+ * values: {0,0,1,1}
+ * columns: {0,0,0,1}
+ * rowIndex: {0,1,2,3,4}
+ *
+ */
+TEST (aPlus_CSR3_form_test, ALL) {
+	CSR3Matrix aPlusCSR3 = getAPlusInCSR3();
+
+	ASSERT_EQ(aPlusCSR3.rowsNumber, 4);
+
+	//check the total values number
+	ASSERT_EQ(aPlusCSR3.rowIndex[4], 4);
+
+	std::vector<int> *vec = new std::vector<int>();
+	(*vec).assign(aPlusCSR3.columns, aPlusCSR3.columns + 4);
+	ASSERT_THAT(*vec, ElementsAre(0,0,0,1));
+
+	(*vec).assign(aPlusCSR3.rowIndex, aPlusCSR3.rowIndex + 5);
+	ASSERT_THAT(*vec, ElementsAre(0,1,2,3,4));
+
+	std::vector<MKL_Complex8> *cs = new std::vector<MKL_Complex8>();
+	(*cs).assign(aPlusCSR3.values, aPlusCSR3.values + 4);
+
+	Matcher<MKL_Complex8> matchers[] = { ComplexNumberEquals(
+			MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 { 0, 0 }),
+			ComplexNumberEquals(MKL_Complex8 { 1, 0 }), ComplexNumberEquals(
+					MKL_Complex8 { 1, 0 })};
+	ASSERT_THAT(*cs, ElementsAreArray(matchers));
 }
 
 int main(int argc, char **argv) {
 	printf("Running main() from gtest_main.cc\n");
+	printf("Work only for n=1\n");
 	testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
 }

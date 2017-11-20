@@ -12,14 +12,26 @@
 
 struct MatrixDiagForm {
 	int diagDistLength;
+	int leadDimension;
 	int *diagsDistances;
 	MKL_Complex8 *matrix;
+};
+
+struct CSR3Matrix {
+	int rowsNumber;
+	MKL_Complex8 *values;
+	int *columns;
+	int *rowIndex;	//indices from values of the first
+					//non-null row elements of the matrix being compressed
+					//the last element - total number of elements in values
 };
 
 void initPhotonNumbersSqrts();
 float aPlus(int i, int j);
 float sigmaPlus(int i, int j);
 MatrixDiagForm getHhatInDiagForm();
+CSR3Matrix getHInCSR3();
+CSR3Matrix getAPlusInCSR3();
 
 //inline functions
 inline int n(int index) {
