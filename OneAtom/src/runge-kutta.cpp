@@ -44,6 +44,35 @@ float sigmaPlus(int i, int j) {
 	return 1.0f;
 }
 
+//hbar = 1
+//The Hhat from Petruchionne p363, the (7.11) expression
+inline MKL_Complex8 H(int i, int j, int DRESSED_BASIS_SIZE, float KAPPA,
+		float DELTA_OMEGA, float G, float LATIN_E) {
+	//the real part of the matrix element
+	float imaginary = 0.0f;
+	for (int k = 0; k < DRESSED_BASIS_SIZE; k++) {
+		imaginary -=
+				-DELTA_OMEGA
+						* (aPlus(i, k) * aPlus(j, k)
+								+ sigmaPlus(i, k) * sigmaPlus(j, k))
+						+ G
+								* (aPlus(k, i) * sigmaPlus(k, j)
+										+ aPlus(i, k) * sigmaPlus(j, k));
+	}
+
+	imaginary -= LATIN_E * (aPlus(i, j) + aPlus(j, i));
+
+	//the imaginary
+	float real = 0.0;
+	for (int k = 0; k < DRESSED_BASIS_SIZE; k++) {
+		real -= aPlus(i, k) * aPlus(j, k);
+	}
+
+	real *= KAPPA;
+
+	return {real, imaginary};
+}
+
 CSR3Matrix getAPlusInCSR3() {
 	CSR3Matrix csr3Matrix;
 
@@ -56,9 +85,9 @@ CSR3Matrix getAPlusInCSR3() {
 	//   0100
 	const int vertOffset = 2;
 	csr3Matrix.rowsNumber = DRESSED_BASIS_SIZE;
-	csr3Matrix.values = new MKL_Complex8[DRESSED_BASIS_SIZE - 2];
-	csr3Matrix.columns = new int[DRESSED_BASIS_SIZE - 2];
-	csr3Matrix.rowIndex = new int[DRESSED_BASIS_SIZE]; //non-zero elements on each row
+	csr3Matrix.values = new MKL_Complex8[DRESSED_BASIS_SIZE];
+	csr3Matrix.columns = new int[DRESSED_BASIS_SIZE];
+	csr3Matrix.rowIndex = new int[DRESSED_BASIS_SIZE+1]; //non-zero elements on each row
 
 	int colNum;
 	int currValueIndex = -1;	//to hold current index
@@ -72,6 +101,43 @@ CSR3Matrix getAPlusInCSR3() {
 		} else {
 			csr3Matrix.values[currValueIndex] = {0,0};	//the first two rows - by zero
 			csr3Matrix.columns[currValueIndex] = 0;
+		}
+		csr3Matrix.rowIndex[i] = currValueIndex;	//each value on its own row
+	}
+
+	csr3Matrix.rowIndex[i] = currValueIndex + 1; //the length of the values array
+
+	return csr3Matrix;
+}
+
+CSR3Matrix getAInCSR3() {
+	CSR3Matrix csr3Matrix;
+
+	//a is a 1-diagonal matrix
+
+	//1 - the number of diagonals, 2 - the cut off corner elements
+	// 0010
+	// 0001
+	// 0000-
+	// 0000 -
+	const int tailPadding = 2;	//additional zero elements in place of zero rows at the bottom
+	csr3Matrix.rowsNumber = DRESSED_BASIS_SIZE;
+	csr3Matrix.values = new MKL_Complex8[DRESSED_BASIS_SIZE];
+	csr3Matrix.columns = new int[DRESSED_BASIS_SIZE];
+	csr3Matrix.rowIndex = new int[DRESSED_BASIS_SIZE+1]; //non-zero elements on each row
+
+	int colNum;
+	int currValueIndex = -1;	//to hold current index
+	int i;
+	for (i = 0; i < DRESSED_BASIS_SIZE; i++) {
+		colNum = i + tailPadding;
+		currValueIndex++;
+		if (colNum < DRESSED_BASIS_SIZE) {
+			csr3Matrix.values[currValueIndex] = {aPlus(colNum, i),0}; //swap arguments
+			csr3Matrix.columns[currValueIndex] = colNum;
+		} else {
+			csr3Matrix.values[currValueIndex] = {0,0};	//the first two rows - by zero
+			csr3Matrix.columns[currValueIndex] = DRESSED_BASIS_SIZE - 1;
 		}
 		csr3Matrix.rowIndex[i] = currValueIndex;	//each value on its own row
 	}
@@ -100,7 +166,7 @@ CSR3Matrix getHInCSR3() {
 	csr3Matrix.rowsNumber = DRESSED_BASIS_SIZE;
 	csr3Matrix.values = new MKL_Complex8[DRESSED_BASIS_SIZE * diagsNumber - 6];
 	csr3Matrix.columns = new int[DRESSED_BASIS_SIZE * diagsNumber - 6];
-	csr3Matrix.rowIndex = new int[DRESSED_BASIS_SIZE]; //non-zero elements on each row
+	csr3Matrix.rowIndex = new int[DRESSED_BASIS_SIZE+1]; //non-zero elements on each row
 
 	int colNum;
 	int currValueIndex = -1;

@@ -229,6 +229,44 @@ TEST (aPlus_CSR3_form_test, ALL) {
 	ASSERT_THAT(*cs, ElementsAreArray(matchers));
 }
 
+/**
+ * a =
+ *
+ * (0	0	1	0)
+ * (0	0	0	1)
+ * (0	0	0	0)
+ * (0	0	0	0)
+ *
+ * values: {1,1,0,0}
+ * columns: {2,3,3,3}
+ * rowIndex: {0,1,2,3,4}
+ *
+ */
+TEST (a_CSR3_form_test, ALL) {
+	CSR3Matrix aCSR3 = getAInCSR3();
+
+	ASSERT_EQ(aCSR3.rowsNumber, 4);
+
+	//check the total values number
+	ASSERT_EQ(aCSR3.rowIndex[4], 4);
+
+	std::vector<int> *vec = new std::vector<int>();
+	(*vec).assign(aCSR3.columns, aCSR3.columns + 4);
+	ASSERT_THAT(*vec, ElementsAre(2,3,3,3));
+
+	(*vec).assign(aCSR3.rowIndex, aCSR3.rowIndex + 5);
+	ASSERT_THAT(*vec, ElementsAre(0,1,2,3,4));
+
+	std::vector<MKL_Complex8> *cs = new std::vector<MKL_Complex8>();
+	(*cs).assign(aCSR3.values, aCSR3.values + 4);
+
+	Matcher<MKL_Complex8> matchers[] = { ComplexNumberEquals(
+			MKL_Complex8 { 1, 0 }), ComplexNumberEquals(MKL_Complex8 { 01, 0 }),
+			ComplexNumberEquals(MKL_Complex8 { 0, 0 }), ComplexNumberEquals(
+					MKL_Complex8 { 0, 0 })};
+	ASSERT_THAT(*cs, ElementsAreArray(matchers));
+}
+
 int main(int argc, char **argv) {
 	printf("Running main() from gtest_main.cc\n");
 	printf("Work only for n=1\n");
