@@ -5,6 +5,7 @@
  *      Author: fake_sci
  */
 
+#include <macro.h>
 #include <runge-kutta.h>
 
 #include <iostream>
@@ -12,44 +13,44 @@
 #include <system-constants.h>
 #include <eval-params.h>	//probably, should not be here
 
-static float sqrtsOfPhotonNumbers[MAX_PHOTON_NUMBER + 1];
+static FLOAT_TYPE sqrtsOfPhotonNumbers[MAX_PHOTON_NUMBER + 1];
 
 //Please, do not forget to call this before usage (Should be a class with a constructor?)
 void initPhotonNumbersSqrts() {
 	//calculate square roots
-	float photonNumbers[MAX_PHOTON_NUMBER + 1];
+	FLOAT_TYPE photonNumbers[MAX_PHOTON_NUMBER + 1];
 	for (int k = 0; k < MAX_PHOTON_NUMBER + 1; k++) {
 		photonNumbers[k] = k;
 	}
 
-	vsSqrt((MKL_INT) (MAX_PHOTON_NUMBER + 1), photonNumbers,
+	vdSqrt((MKL_INT) (MAX_PHOTON_NUMBER + 1), photonNumbers,
 			sqrtsOfPhotonNumbers);
 }
 
 //to obtain a just swap i and j
-float aPlus(int i, int j) {
+FLOAT_TYPE aPlus(int i, int j) {
 	if (n(i) != n(j) + 1 || s(i) != s(j)) {
-		return 0.0f;
+		return 0.0;
 	}
 
 	return sqrtsOfPhotonNumbers[n(j) + 1];
 }
 
 //to obtain sigmaMinus just swap i and j
-float sigmaPlus(int i, int j) {
+FLOAT_TYPE sigmaPlus(int i, int j) {
 	if (s(j) != 0 || s(i) != 1 || n(i) != n(j)) {
-		return 0.0f;
+		return 0.0;
 	}
 
-	return 1.0f;
+	return 1.0;
 }
 
 //hbar = 1
 //The Hhat from Petruchionne p363, the (7.11) expression
-inline MKL_Complex8 H(int i, int j, int DRESSED_BASIS_SIZE, float KAPPA,
-		float DELTA_OMEGA, float G, float LATIN_E) {
+inline COMPLEX_TYPE H(int i, int j, int DRESSED_BASIS_SIZE, FLOAT_TYPE KAPPA,
+		FLOAT_TYPE DELTA_OMEGA, FLOAT_TYPE G, FLOAT_TYPE LATIN_E) {
 	//the real part of the matrix element
-	float imaginary = 0.0f;
+	FLOAT_TYPE imaginary = 0.0;
 	for (int k = 0; k < DRESSED_BASIS_SIZE; k++) {
 		imaginary -=
 				-DELTA_OMEGA
@@ -63,7 +64,7 @@ inline MKL_Complex8 H(int i, int j, int DRESSED_BASIS_SIZE, float KAPPA,
 	imaginary -= LATIN_E * (aPlus(i, j) + aPlus(j, i));
 
 	//the imaginary
-	float real = 0.0;
+	FLOAT_TYPE real = 0.0;
 	for (int k = 0; k < DRESSED_BASIS_SIZE; k++) {
 		real -= aPlus(i, k) * aPlus(j, k);
 	}
@@ -85,7 +86,7 @@ CSR3Matrix getAPlusInCSR3() {
 	//   0100
 	const int vertOffset = 2;
 	csr3Matrix.rowsNumber = DRESSED_BASIS_SIZE;
-	csr3Matrix.values = new MKL_Complex8[DRESSED_BASIS_SIZE];
+	csr3Matrix.values = new COMPLEX_TYPE[DRESSED_BASIS_SIZE];
 	csr3Matrix.columns = new int[DRESSED_BASIS_SIZE];
 	csr3Matrix.rowIndex = new int[DRESSED_BASIS_SIZE+1]; //non-zero elements on each row
 
@@ -122,7 +123,7 @@ CSR3Matrix getAInCSR3() {
 	// 0000 -
 	const int tailPadding = 2;	//additional zero elements in place of zero rows at the bottom
 	csr3Matrix.rowsNumber = DRESSED_BASIS_SIZE;
-	csr3Matrix.values = new MKL_Complex8[DRESSED_BASIS_SIZE];
+	csr3Matrix.values = new COMPLEX_TYPE[DRESSED_BASIS_SIZE];
 	csr3Matrix.columns = new int[DRESSED_BASIS_SIZE];
 	csr3Matrix.rowIndex = new int[DRESSED_BASIS_SIZE+1]; //non-zero elements on each row
 
@@ -164,7 +165,7 @@ CSR3Matrix getHInCSR3() {
 	const int diagsNumber = 5;
 	const int halfDiagsNumber = diagsNumber / 2;
 	csr3Matrix.rowsNumber = DRESSED_BASIS_SIZE;
-	csr3Matrix.values = new MKL_Complex8[DRESSED_BASIS_SIZE * diagsNumber - 6];
+	csr3Matrix.values = new COMPLEX_TYPE[DRESSED_BASIS_SIZE * diagsNumber - 6];
 	csr3Matrix.columns = new int[DRESSED_BASIS_SIZE * diagsNumber - 6];
 	csr3Matrix.rowIndex = new int[DRESSED_BASIS_SIZE+1]; //non-zero elements on each row
 
@@ -211,7 +212,7 @@ MatrixDiagForm getHhatInDiagForm() {
 	diagH.leadDimension = DRESSED_BASIS_SIZE;
 	diagH.diagsDistances = new int[5] { -2, -1, 0, 1, 2 };
 	//the compact diagonals storage
-	diagH.matrix = new MKL_Complex8[DRESSED_BASIS_SIZE * 5];
+	diagH.matrix = new COMPLEX_TYPE[DRESSED_BASIS_SIZE * 5];
 
 	//Part of the indices goes out of the boundaries, at the beginning abd at the end
 	//

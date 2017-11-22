@@ -8,6 +8,7 @@
 #ifndef SRC_RUNGE_KUTTA_H_
 #define SRC_RUNGE_KUTTA_H_
 
+#include <macro.h>
 #include <mkl.h>
 #include <eval-params.h>
 
@@ -15,12 +16,12 @@ struct MatrixDiagForm {
 	int diagDistLength;
 	int leadDimension;
 	int *diagsDistances;
-	MKL_Complex8 *matrix;
+	COMPLEX_TYPE *matrix;
 };
 
 struct CSR3Matrix {
 	int rowsNumber;
-	MKL_Complex8 *values;
+	COMPLEX_TYPE *values;
 	int *columns;
 	int *rowIndex;	//indices from values of the first
 					//non-null row elements of the matrix being compressed
@@ -28,15 +29,15 @@ struct CSR3Matrix {
 };
 
 void initPhotonNumbersSqrts();
-float aPlus(int i, int j);
-float sigmaPlus(int i, int j);
+FLOAT_TYPE aPlus(int i, int j);
+FLOAT_TYPE sigmaPlus(int i, int j);
 MatrixDiagForm getHhatInDiagForm();
 CSR3Matrix getHInCSR3();
 CSR3Matrix getAPlusInCSR3();
 CSR3Matrix getAInCSR3();
 
-inline MKL_Complex8 H(int i, int j, int DRESSED_BASIS_SIZE, float KAPPA,
-		float DELTA_OMEGA, float G, float LATIN_E);
+inline COMPLEX_TYPE H(int i, int j, int DRESSED_BASIS_SIZE, FLOAT_TYPE KAPPA,
+		FLOAT_TYPE DELTA_OMEGA, FLOAT_TYPE G, FLOAT_TYPE LATIN_E);
 
 //inline functions
 inline int n(int index) {

@@ -4,6 +4,8 @@
 #include "gmock/gmock.h"
 #include "mkl.h"
 
+#include <macro.h>
+
 using namespace testing;
 
 #define ASSERT_COMPLEX(c, expReal, expImagine)\
@@ -17,7 +19,7 @@ MATCHER_P (ComplexNumberEquals, a, ""){
 return a.real == arg.real && a.imag == arg.imag;
 }
 
-::std::ostream& operator<<(::std::ostream& os, const MKL_Complex8& c) {
+::std::ostream& operator<<(::std::ostream& os, const COMPLEX_TYPE& c) {
 	return os << c.real << " + " << c.imag << "i";
 }
 
@@ -30,7 +32,7 @@ return a.real == arg.real && a.imag == arg.imag;
  * (0	-2i		0	-1+40i)
  */
 TEST (H_tests,ALL) {
-	const float EXPECTED_RESULT[4][4][2] = { { { 0.0f, 0.0f }, { 0.0f, 0.0f }, {
+	const FLOAT_TYPE EXPECTED_RESULT[4][4][2] = { { { 0.0f, 0.0f }, { 0.0f, 0.0f }, {
 			0.0f, -2.0f }, { 0.0f, 0.0f } }, { { 0.0f, 0.0f }, { 0.0f, 20.0f },
 			{ 0.0f, -50.0f }, { 0.0f, -2.0f } }, { { 0.0f, -2.0f }, { 0.0f,
 			-50.0f }, { -1.0f, 20.0f }, { 0.0f, 0.0f } }, { { 0.0f, 0.0f }, {
@@ -41,7 +43,7 @@ TEST (H_tests,ALL) {
 	//check the matrix
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
-			MKL_Complex8 c = H(i, j, 4, 1.0f, 20.0f, 50.0f, 2.0f);
+			COMPLEX_TYPE c = H(i, j, 4, 1.0f, 20.0f, 50.0f, 2.0f);
 			ASSERT_COMPLEX(c, EXPECTED_RESULT[i][j][0],
 					EXPECTED_RESULT[i][j][1]);
 		}
@@ -57,7 +59,7 @@ TEST (H_tests,ALL) {
  * (0	1	0	0)
  */
 TEST (aPlus_test, ALL) {
-	const float EXPECTED_RESULT[4][4] = { { 0.0f, 0.0f, 0.0f, 0.0f }, { 0.0f,
+	const FLOAT_TYPE EXPECTED_RESULT[4][4] = { { 0.0f, 0.0f, 0.0f, 0.0f }, { 0.0f,
 			0.0f, 0.0f, 0.0f }, { 1.0f, 0.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f,
 			0.0f } };
 	//init cache...
@@ -66,7 +68,7 @@ TEST (aPlus_test, ALL) {
 	//check the matrix
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
-			float result = aPlus(i, j);
+			FLOAT_TYPE result = aPlus(i, j);
 			ASSERT_FLOAT_EQ(result, EXPECTED_RESULT[i][j]);
 		}
 	}
@@ -81,7 +83,7 @@ TEST (aPlus_test, ALL) {
  * (0	0	1	0)
  */
 TEST (sigmaPlus_test, ALL) {
-	const float EXPECTED_RESULT[4][4] = { { 0.0f, 0.0f, 0.0f, 0.0f }, { 1.0f,
+	const FLOAT_TYPE EXPECTED_RESULT[4][4] = { { 0.0f, 0.0f, 0.0f, 0.0f }, { 1.0f,
 			0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 1.0f,
 			0.0f } };
 	//init cache...
@@ -90,7 +92,7 @@ TEST (sigmaPlus_test, ALL) {
 	//check the matrix
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
-			float result = sigmaPlus(i, j);
+			FLOAT_TYPE result = sigmaPlus(i, j);
 			ASSERT_FLOAT_EQ(result, EXPECTED_RESULT[i][j]);
 		}
 	}
@@ -125,23 +127,23 @@ TEST (H_diagonal_form_test, ALL) {
 			diagH.diagsDistances + diagH.diagDistLength);
 	ASSERT_THAT(*vec, ElementsAre(-2, -1, 0, 1, 2));
 
-	std::vector<MKL_Complex8> *cs = new std::vector<MKL_Complex8>();
+	std::vector<COMPLEX_TYPE> *cs = new std::vector<COMPLEX_TYPE>();
 	(*cs).assign(diagH.matrix,
 			diagH.matrix + diagH.diagDistLength * diagH.leadDimension);
 
-	Matcher<MKL_Complex8> matchers[] = { A<MKL_Complex8>(), A<MKL_Complex8>(),
-			ComplexNumberEquals(MKL_Complex8 { 0, 0 }), ComplexNumberEquals(
-					MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 {
-					0, -2 }), A<MKL_Complex8>(), ComplexNumberEquals(
-					MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 {
-					0, 20 }), ComplexNumberEquals(MKL_Complex8 { 0, -50 }),
-			ComplexNumberEquals(MKL_Complex8 { 0, -2 }), ComplexNumberEquals(
-					MKL_Complex8 { 0, -2 }), ComplexNumberEquals(MKL_Complex8 {
-					0, -50 }), ComplexNumberEquals(MKL_Complex8 { -1, 20 }),
-			ComplexNumberEquals(MKL_Complex8 { 0, 0 }), A<MKL_Complex8>(),
-			ComplexNumberEquals(MKL_Complex8 { 0, -2 }), ComplexNumberEquals(
-					MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 {
-					-1, 40 }), A<MKL_Complex8>(), A<MKL_Complex8>() };
+	Matcher<COMPLEX_TYPE> matchers[] = { A<COMPLEX_TYPE>(), A<COMPLEX_TYPE>(),
+			ComplexNumberEquals(COMPLEX_TYPE { 0, 0 }), ComplexNumberEquals(
+					COMPLEX_TYPE { 0, 0 }), ComplexNumberEquals(COMPLEX_TYPE {
+					0, -2 }), A<COMPLEX_TYPE>(), ComplexNumberEquals(
+					COMPLEX_TYPE { 0, 0 }), ComplexNumberEquals(COMPLEX_TYPE {
+					0, 20 }), ComplexNumberEquals(COMPLEX_TYPE { 0, -50 }),
+			ComplexNumberEquals(COMPLEX_TYPE { 0, -2 }), ComplexNumberEquals(
+					COMPLEX_TYPE { 0, -2 }), ComplexNumberEquals(COMPLEX_TYPE {
+					0, -50 }), ComplexNumberEquals(COMPLEX_TYPE { -1, 20 }),
+			ComplexNumberEquals(COMPLEX_TYPE { 0, 0 }), A<COMPLEX_TYPE>(),
+			ComplexNumberEquals(COMPLEX_TYPE { 0, -2 }), ComplexNumberEquals(
+					COMPLEX_TYPE { 0, 0 }), ComplexNumberEquals(COMPLEX_TYPE {
+					-1, 40 }), A<COMPLEX_TYPE>(), A<COMPLEX_TYPE>() };
 	ASSERT_THAT(*cs, ElementsAreArray(matchers));
 }
 
@@ -174,20 +176,20 @@ TEST (H_CSR3_form_test, ALL) {
 	(*vec).assign(hCSR3.rowIndex, hCSR3.rowIndex + 5);
 	ASSERT_THAT(*vec, ElementsAreArray( {0,3,7,11,14}));
 
-	std::vector<MKL_Complex8> *cs = new std::vector<MKL_Complex8>();
+	std::vector<COMPLEX_TYPE> *cs = new std::vector<COMPLEX_TYPE>();
 	(*cs).assign(hCSR3.values, hCSR3.values + 14);
 
-	Matcher<MKL_Complex8> matchers[] = { ComplexNumberEquals(
-			MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 { 0, 0 }),
-			ComplexNumberEquals(MKL_Complex8 { 0, -2 }), ComplexNumberEquals(
-					MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 {
-					0, 20 }), ComplexNumberEquals(MKL_Complex8 { 0, -50 }), ComplexNumberEquals(
-					MKL_Complex8 { 0, -2 }), ComplexNumberEquals(MKL_Complex8 {
-					0, -2 }), ComplexNumberEquals(MKL_Complex8 { 0, -50 }),
-			ComplexNumberEquals(MKL_Complex8 { -1, 20 }), ComplexNumberEquals(
-					MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 {
-					0, -2 }), ComplexNumberEquals(MKL_Complex8 { 0, 0 }),
-			ComplexNumberEquals(MKL_Complex8 { -1, 40 })};
+	Matcher<COMPLEX_TYPE> matchers[] = { ComplexNumberEquals(
+			COMPLEX_TYPE { 0, 0 }), ComplexNumberEquals(COMPLEX_TYPE { 0, 0 }),
+			ComplexNumberEquals(COMPLEX_TYPE { 0, -2 }), ComplexNumberEquals(
+					COMPLEX_TYPE { 0, 0 }), ComplexNumberEquals(COMPLEX_TYPE {
+					0, 20 }), ComplexNumberEquals(COMPLEX_TYPE { 0, -50 }), ComplexNumberEquals(
+					COMPLEX_TYPE { 0, -2 }), ComplexNumberEquals(COMPLEX_TYPE {
+					0, -2 }), ComplexNumberEquals(COMPLEX_TYPE { 0, -50 }),
+			ComplexNumberEquals(COMPLEX_TYPE { -1, 20 }), ComplexNumberEquals(
+					COMPLEX_TYPE { 0, 0 }), ComplexNumberEquals(COMPLEX_TYPE {
+					0, -2 }), ComplexNumberEquals(COMPLEX_TYPE { 0, 0 }),
+			ComplexNumberEquals(COMPLEX_TYPE { -1, 40 })};
 	ASSERT_THAT(*cs, ElementsAreArray(matchers));
 }
 
@@ -219,13 +221,13 @@ TEST (aPlus_CSR3_form_test, ALL) {
 	(*vec).assign(aPlusCSR3.rowIndex, aPlusCSR3.rowIndex + 5);
 	ASSERT_THAT(*vec, ElementsAre(0,1,2,3,4));
 
-	std::vector<MKL_Complex8> *cs = new std::vector<MKL_Complex8>();
+	std::vector<COMPLEX_TYPE> *cs = new std::vector<COMPLEX_TYPE>();
 	(*cs).assign(aPlusCSR3.values, aPlusCSR3.values + 4);
 
-	Matcher<MKL_Complex8> matchers[] = { ComplexNumberEquals(
-			MKL_Complex8 { 0, 0 }), ComplexNumberEquals(MKL_Complex8 { 0, 0 }),
-			ComplexNumberEquals(MKL_Complex8 { 1, 0 }), ComplexNumberEquals(
-					MKL_Complex8 { 1, 0 })};
+	Matcher<COMPLEX_TYPE> matchers[] = { ComplexNumberEquals(
+			COMPLEX_TYPE { 0, 0 }), ComplexNumberEquals(COMPLEX_TYPE { 0, 0 }),
+			ComplexNumberEquals(COMPLEX_TYPE { 1, 0 }), ComplexNumberEquals(
+					COMPLEX_TYPE { 1, 0 })};
 	ASSERT_THAT(*cs, ElementsAreArray(matchers));
 }
 
@@ -257,13 +259,13 @@ TEST (a_CSR3_form_test, ALL) {
 	(*vec).assign(aCSR3.rowIndex, aCSR3.rowIndex + 5);
 	ASSERT_THAT(*vec, ElementsAre(0,1,2,3,4));
 
-	std::vector<MKL_Complex8> *cs = new std::vector<MKL_Complex8>();
+	std::vector<COMPLEX_TYPE> *cs = new std::vector<COMPLEX_TYPE>();
 	(*cs).assign(aCSR3.values, aCSR3.values + 4);
 
-	Matcher<MKL_Complex8> matchers[] = { ComplexNumberEquals(
-			MKL_Complex8 { 1, 0 }), ComplexNumberEquals(MKL_Complex8 { 01, 0 }),
-			ComplexNumberEquals(MKL_Complex8 { 0, 0 }), ComplexNumberEquals(
-					MKL_Complex8 { 0, 0 })};
+	Matcher<COMPLEX_TYPE> matchers[] = { ComplexNumberEquals(
+			COMPLEX_TYPE { 1, 0 }), ComplexNumberEquals(COMPLEX_TYPE { 01, 0 }),
+			ComplexNumberEquals(COMPLEX_TYPE { 0, 0 }), ComplexNumberEquals(
+					COMPLEX_TYPE { 0, 0 })};
 	ASSERT_THAT(*cs, ElementsAreArray(matchers));
 }
 
