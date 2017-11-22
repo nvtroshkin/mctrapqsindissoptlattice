@@ -32,7 +32,7 @@ static const COMPLEX_TYPE MULT_ONE = COMPLEX_TYPE { 1.0f, 0.0f };
 static COMPLEX_TYPE samples[MONTE_CARLO_SAMPLES_NUMBER][TIME_STEPS_NUMBER + 1][DRESSED_BASIS_SIZE];
 
 inline void normalizeVector(COMPLEX_TYPE normReversed, COMPLEX_TYPE norm2,
-		COMPLEX_TYPE *zeroVector, COMPLEX_TYPE *stateVector) {
+COMPLEX_TYPE *zeroVector, COMPLEX_TYPE *stateVector) {
 
 	vsSqrt((MKL_INT) 1, &norm2.real, &normReversed.real);
 	normReversed.real = 1.0f / normReversed.real;
@@ -229,7 +229,6 @@ int main(int argc, char **argv) {
 
 	//Sum(<psi|n|psi>)
 	//mult psi on ns
-	FLOAT_TYPE meanPhotonsNumber = 0.0f;
 	FLOAT_TYPE meanPhotonNumbers[MONTE_CARLO_SAMPLES_NUMBER];
 	for (int i = 0; i < MONTE_CARLO_SAMPLES_NUMBER; i++) {
 		vcMul((MKL_INT) DRESSED_BASIS_SIZE, samples[i][TIME_STEPS_NUMBER],
@@ -237,26 +236,35 @@ int main(int argc, char **argv) {
 		cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, VECTOR_BUFF[0], NO_INC,
 				samples[i][TIME_STEPS_NUMBER], NO_INC, &norm2);
 
-		meanPhotonsNumber += norm2.real;
-		//store for the variance
+				//store for the variance
 		meanPhotonNumbers[i] = norm2.real;
 	}
+
+	FLOAT_TYPE meanPhotonsNumber = cblas_sasum((MKL_INT)MONTE_CARLO_SAMPLES_NUMBER, meanPhotonNumbers, NO_INC);
 	meanPhotonsNumber /= MONTE_CARLO_SAMPLES_NUMBER;
 
 	//variance. Calculate like this to avoid close numbers subtraction
-	FLOAT_TYPE sum1 = 0.0f;
-	FLOAT_TYPE sum2 = 0.0f;
-	for (int i = 0; i < MONTE_CARLO_SAMPLES_NUMBER; i++) {
-		sum1 += meanPhotonNumbers[i] * meanPhotonNumbers[i];
-		sum2 += 2 * meanPhotonsNumber * meanPhotonNumbers[i];
-	}
-	FLOAT_TYPE sum = abs(sum1
-			+ MONTE_CARLO_SAMPLES_NUMBER * meanPhotonsNumber * meanPhotonsNumber
-			- sum2);
+	//Sum(mean photon numbers)^2
+	FLOAT_TYPE sum1 = cblas_sdsdot((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, 0.0f, meanPhotonNumbers, NO_INC,
+					meanPhotonNumbers, NO_INC);
+
+	//Sum(2*mean photon number*mean photon number[i])
+	FLOAT_TYPE temp[DRESSED_BASIS_SIZE];
+	cblas_scopy((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, meanPhotonNumbers, NO_INC,
+					temp, NO_INC);
+	cblas_sscal((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, 2.0f * meanPhotonsNumber, temp, NO_INC);
+	FLOAT_TYPE sum2 = cblas_sasum((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, temp, NO_INC);
+
+	//(a^2 + b^2 - 2 a b)
+	FLOAT_TYPE sum = abs(
+			sum1
+					+ MONTE_CARLO_SAMPLES_NUMBER * meanPhotonsNumber
+							* meanPhotonsNumber - sum2);
 
 	FLOAT_TYPE variance = sqrtf(
-			sum / MONTE_CARLO_SAMPLES_NUMBER
-					/ (MONTE_CARLO_SAMPLES_NUMBER - 1));
+			sum
+					/ (MONTE_CARLO_SAMPLES_NUMBER
+							* (MONTE_CARLO_SAMPLES_NUMBER - 1)));
 
 	//free resources
 	delete[] hCSR3.values;
