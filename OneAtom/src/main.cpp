@@ -99,6 +99,14 @@ inline void make4thOrderRungeKuttaStep(const COMPLEX_TYPE *HCSR3Values,
 			nextState, NO_INC);
 }
 
+void print(char title[], COMPLEX_TYPE array[]) {
+	cout << title << ": {" << endl;
+	for (int v = 0; v < DRESSED_BASIS_SIZE; v++) {
+		cout << array[v].real << " + " << array[v].imag << "i, ";
+	}
+	cout << "}" << endl;
+}
+
 int main(int argc, char **argv) {
 	auto start = chrono::steady_clock::now();
 
