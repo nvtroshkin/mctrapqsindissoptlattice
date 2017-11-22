@@ -23,14 +23,14 @@ void initPhotonNumbersSqrts() {
 		photonNumbers[k] = k;
 	}
 
-	vdSqrt((MKL_INT) (MAX_PHOTON_NUMBER + 1), photonNumbers,
+	vsSqrt((MKL_INT) (MAX_PHOTON_NUMBER + 1), photonNumbers,
 			sqrtsOfPhotonNumbers);
 }
 
 //to obtain a just swap i and j
 FLOAT_TYPE aPlus(int i, int j) {
 	if (n(i) != n(j) + 1 || s(i) != s(j)) {
-		return 0.0;
+		return 0.0f;
 	}
 
 	return sqrtsOfPhotonNumbers[n(j) + 1];
@@ -39,10 +39,10 @@ FLOAT_TYPE aPlus(int i, int j) {
 //to obtain sigmaMinus just swap i and j
 FLOAT_TYPE sigmaPlus(int i, int j) {
 	if (s(j) != 0 || s(i) != 1 || n(i) != n(j)) {
-		return 0.0;
+		return 0.0f;
 	}
 
-	return 1.0;
+	return 1.0f;
 }
 
 //hbar = 1
@@ -50,7 +50,7 @@ FLOAT_TYPE sigmaPlus(int i, int j) {
 inline COMPLEX_TYPE H(int i, int j, int DRESSED_BASIS_SIZE, FLOAT_TYPE KAPPA,
 		FLOAT_TYPE DELTA_OMEGA, FLOAT_TYPE G, FLOAT_TYPE LATIN_E) {
 	//the real part of the matrix element
-	FLOAT_TYPE imaginary = 0.0;
+	FLOAT_TYPE imaginary = 0.0f;
 	for (int k = 0; k < DRESSED_BASIS_SIZE; k++) {
 		imaginary -=
 				-DELTA_OMEGA
@@ -64,7 +64,7 @@ inline COMPLEX_TYPE H(int i, int j, int DRESSED_BASIS_SIZE, FLOAT_TYPE KAPPA,
 	imaginary -= LATIN_E * (aPlus(i, j) + aPlus(j, i));
 
 	//the imaginary
-	FLOAT_TYPE real = 0.0;
+	FLOAT_TYPE real = 0.0f;
 	for (int k = 0; k < DRESSED_BASIS_SIZE; k++) {
 		real -= aPlus(i, k) * aPlus(j, k);
 	}

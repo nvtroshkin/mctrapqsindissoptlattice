@@ -19,13 +19,13 @@ using namespace std;
 static const MKL_INT NO_INC = 1; //for the BLAS vector library - not incrementing vectors
 
 static COMPLEX_TYPE VECTOR_BUFF[7][DRESSED_BASIS_SIZE]; //a storage for temporary vectors
-static const COMPLEX_TYPE MULT_T_HALF_STEP = COMPLEX_TYPE { 0.5 * T_STEP_SIZE,
+static const COMPLEX_TYPE MULT_T_HALF_STEP = COMPLEX_TYPE { 0.5f * T_STEP_SIZE,
 		0.0f };
-static const COMPLEX_TYPE MULT_T_STEP = COMPLEX_TYPE { T_STEP_SIZE, 0.0 };
-static const COMPLEX_TYPE MULT_T_SIXTH_STEP = COMPLEX_TYPE { T_STEP_SIZE / 6.0,
+static const COMPLEX_TYPE MULT_T_STEP = COMPLEX_TYPE { T_STEP_SIZE, 0.0f };
+static const COMPLEX_TYPE MULT_T_SIXTH_STEP = COMPLEX_TYPE { T_STEP_SIZE / 6.0f,
 		0.0f };
-static const COMPLEX_TYPE MULT_TWO = COMPLEX_TYPE { 2.0, 0.0 };
-static const COMPLEX_TYPE MULT_ONE = COMPLEX_TYPE { 1.0, 0.0 };
+static const COMPLEX_TYPE MULT_TWO = COMPLEX_TYPE { 2.0f, 0.0f };
+static const COMPLEX_TYPE MULT_ONE = COMPLEX_TYPE { 1.0f, 0.0f };
 
 //A sample is a two-dimensional array of slices of the state vector at the steps of discretized time
 //TIME_STEPS_NUMBER + 1 because of elements of the array are points, not segments
@@ -34,15 +34,15 @@ static COMPLEX_TYPE samples[MONTE_CARLO_SAMPLES_NUMBER][TIME_STEPS_NUMBER + 1][D
 inline void normalizeVector(COMPLEX_TYPE normReversed, COMPLEX_TYPE norm2,
 		COMPLEX_TYPE *zeroVector, COMPLEX_TYPE *stateVector) {
 
-	vdSqrt((MKL_INT) 1, &norm2.real, &normReversed.real);
-	normReversed.real = 1.0 / normReversed.real;
+	vsSqrt((MKL_INT) 1, &norm2.real, &normReversed.real);
+	normReversed.real = 1.0f / normReversed.real;
 
-	cblas_zcopy((MKL_INT) DRESSED_BASIS_SIZE, zeroVector, NO_INC,
+	cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, zeroVector, NO_INC,
 			VECTOR_BUFF[0], NO_INC);
-	cblas_zaxpy((MKL_INT) DRESSED_BASIS_SIZE, &normReversed, stateVector,
+	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &normReversed, stateVector,
 			NO_INC, VECTOR_BUFF[0], NO_INC);
 	//write back
-	cblas_zcopy((MKL_INT) DRESSED_BASIS_SIZE, VECTOR_BUFF[0], NO_INC,
+	cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, VECTOR_BUFF[0], NO_INC,
 			stateVector, NO_INC);
 }
 
@@ -54,48 +54,48 @@ inline void make4thOrderRungeKuttaStep(const COMPLEX_TYPE *HCSR3Values,
 		COMPLEX_TYPE *k4) {
 	//k1 = f(t, sample[i]);
 	//to k1
-	mkl_cspblas_zcsrgemv("n", &(DRESSED_BASIS_SIZE), HCSR3Values, HCSR3RowIndex,
+	mkl_cspblas_ccsrgemv("n", &(DRESSED_BASIS_SIZE), HCSR3Values, HCSR3RowIndex,
 			HCSR3Columns, curState, k1);
 
 	//copy current state to a temporary vector
-	cblas_zcopy((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC, VECTOR_BUFF[1],
+	cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC, VECTOR_BUFF[1],
 			NO_INC);
-	cblas_zaxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_HALF_STEP, k1, NO_INC,
+	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_HALF_STEP, k1, NO_INC,
 			VECTOR_BUFF[1], NO_INC);
 	//k2 = f(t + T_STEP_SIZE / 2.0f, VECTOR_BUFF[1]);
-	mkl_cspblas_zcsrgemv("n", &(DRESSED_BASIS_SIZE), HCSR3Values, HCSR3RowIndex,
+	mkl_cspblas_ccsrgemv("n", &(DRESSED_BASIS_SIZE), HCSR3Values, HCSR3RowIndex,
 			HCSR3Columns, VECTOR_BUFF[1], k2);
 
 	//same but with another temporary vector for the buffer
-	cblas_zcopy((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC, VECTOR_BUFF[2],
+	cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC, VECTOR_BUFF[2],
 			NO_INC);
-	cblas_zaxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_HALF_STEP, k2, NO_INC,
+	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_HALF_STEP, k2, NO_INC,
 			VECTOR_BUFF[2], NO_INC);
 	//k3 = f(t + T_STEP_SIZE / 2.0f, VECTOR_BUFF[2])
-	mkl_cspblas_zcsrgemv("n", &(DRESSED_BASIS_SIZE), HCSR3Values, HCSR3RowIndex,
+	mkl_cspblas_ccsrgemv("n", &(DRESSED_BASIS_SIZE), HCSR3Values, HCSR3RowIndex,
 			HCSR3Columns, VECTOR_BUFF[2], k3);
 
-	cblas_zcopy((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC, VECTOR_BUFF[3],
+	cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC, VECTOR_BUFF[3],
 			NO_INC);
-	cblas_zaxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_STEP, k3, NO_INC,
+	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_STEP, k3, NO_INC,
 			VECTOR_BUFF[3], NO_INC);
 	//k4 = f(t + T_STEP_SIZE, VECTOR_BUFF[3]);
-	mkl_cspblas_zcsrgemv("n", &(DRESSED_BASIS_SIZE), HCSR3Values, HCSR3RowIndex,
+	mkl_cspblas_ccsrgemv("n", &(DRESSED_BASIS_SIZE), HCSR3Values, HCSR3RowIndex,
 			HCSR3Columns, VECTOR_BUFF[3], k4);
 
 	//store to k1
-	cblas_zaxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_TWO, k2, NO_INC, k1,
+	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_TWO, k2, NO_INC, k1,
 			NO_INC);
 	//to k4
-	cblas_zaxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_TWO, k3, NO_INC, k4,
+	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_TWO, k3, NO_INC, k4,
 			NO_INC);
 	//to k1
-	cblas_zaxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_ONE, k4, NO_INC, k1,
+	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_ONE, k4, NO_INC, k1,
 			NO_INC);
 	//modify sample[i+1]
-	cblas_zcopy((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC, nextState,
+	cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC, nextState,
 			NO_INC);
-	cblas_zaxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_SIXTH_STEP, k1, NO_INC,
+	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_SIXTH_STEP, k1, NO_INC,
 			nextState, NO_INC);
 }
 
@@ -109,20 +109,20 @@ int main(int argc, char **argv) {
 
 	COMPLEX_TYPE zeroVector[DRESSED_BASIS_SIZE];
 	for (int i = 0; i < DRESSED_BASIS_SIZE; i++) {
-		zeroVector[i] = {0.0,0.0};
+		zeroVector[i] = {0.0f,0.0f};
 	}
 
 	//create a random numbers stream
 	int rndNumIndex = 0;		//indicates where we are in the buffer
 	FLOAT_TYPE* rndNumBuff = (FLOAT_TYPE *) scalable_aligned_malloc(
 			RND_NUM_BUFF_SIZE * sizeof(FLOAT_TYPE), SIMDALIGN);
-	for (int i = 0; i < RND_NUM_BUFF_SIZE; i++) {
-		rndNumBuff[i]=0.0;
-	}
-//	VSLStreamStatePtr Stream;
-//	vslNewStream(&Stream, VSL_BRNG_MCG31, RANDSEED);
-//	vdRngUniform(VSL_RNG_METHOD_UNIFORM_STD, Stream, RND_NUM_BUFF_SIZE,
-//			rndNumBuff, 0.0f, 1.0f);
+//	for (int i = 0; i < RND_NUM_BUFF_SIZE; i++) {
+//		rndNumBuff[i]=0.0;
+//	}
+	VSLStreamStatePtr Stream;
+	vslNewStream(&Stream, VSL_BRNG_MCG31, RANDSEED);
+	vsRngUniform(VSL_RNG_METHOD_UNIFORM_STD, Stream, RND_NUM_BUFF_SIZE,
+			rndNumBuff, 0.0f, 1.0f);
 //	ofstream myfile;
 //	myfile.open("rnd-numbers.txt");
 //	if (!myfile.is_open()) {
@@ -145,10 +145,10 @@ int main(int argc, char **argv) {
 
 	//Initialize each sample by the ground state vector
 	for (int i = 0; i < MONTE_CARLO_SAMPLES_NUMBER; i++) {
-		cblas_zcopy((MKL_INT) DRESSED_BASIS_SIZE, zeroVector, NO_INC,
+		cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, zeroVector, NO_INC,
 				samples[i][0], NO_INC);
 
-		samples[i][0][0] = {1.0,0.0};
+		samples[i][0][0] = {1.0f,0.0f};
 	}
 
 	//initialize the threshold for the random jump identification
@@ -160,8 +160,8 @@ int main(int argc, char **argv) {
 	COMPLEX_TYPE k2[DRESSED_BASIS_SIZE];
 	COMPLEX_TYPE k3[DRESSED_BASIS_SIZE];
 	COMPLEX_TYPE k4[DRESSED_BASIS_SIZE];
-	COMPLEX_TYPE norm2 = { 1.0, 0.0 };
-	COMPLEX_TYPE normReversed = { 1.0, 0.0 };
+	COMPLEX_TYPE norm2 = { 1.0f, 0.0f };
+	COMPLEX_TYPE normReversed = { 1.0f, 0.0f };
 //#pragma omp parallel for
 	for (int sampleIndex = 0; sampleIndex < MONTE_CARLO_SAMPLES_NUMBER;
 			sampleIndex++) {
@@ -186,7 +186,7 @@ int main(int argc, char **argv) {
 
 			//if the state vector at t(i+1) has a less square of the norm then the threshold
 			//try a self-written norm?
-			cblas_zdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, sample[i + 1], NO_INC,
+			cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, sample[i + 1], NO_INC,
 					sample[i + 1], NO_INC, &norm2);
 			if (svNormThreshold > norm2.real) {
 				//then a jump is occurred between t(i) and t(i+1)
@@ -194,10 +194,10 @@ int main(int argc, char **argv) {
 
 				//calculate the state vector after the jump
 				//store it at t(i+1)
-				mkl_cspblas_zcsrgemv("n", &(DRESSED_BASIS_SIZE), aCSR3Values,
+				mkl_cspblas_ccsrgemv("n", &(DRESSED_BASIS_SIZE), aCSR3Values,
 						aCSR3RowIndex, aCSR3Columns, sample[i], sample[i + 1]);
 				//calculate new norm
-				cblas_zdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, sample[i + 1],
+				cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, sample[i + 1],
 						NO_INC, sample[i + 1], NO_INC, &norm2);
 
 				//update the random time
@@ -232,9 +232,9 @@ int main(int argc, char **argv) {
 	FLOAT_TYPE meanPhotonsNumber = 0.0f;
 	FLOAT_TYPE meanPhotonNumbers[MONTE_CARLO_SAMPLES_NUMBER];
 	for (int i = 0; i < MONTE_CARLO_SAMPLES_NUMBER; i++) {
-		vzMul((MKL_INT) DRESSED_BASIS_SIZE, samples[i][TIME_STEPS_NUMBER],
+		vcMul((MKL_INT) DRESSED_BASIS_SIZE, samples[i][TIME_STEPS_NUMBER],
 				statePhotonNumber, VECTOR_BUFF[0]);
-		cblas_zdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, VECTOR_BUFF[0], NO_INC,
+		cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, VECTOR_BUFF[0], NO_INC,
 				samples[i][TIME_STEPS_NUMBER], NO_INC, &norm2);
 
 		meanPhotonsNumber += norm2.real;
@@ -244,8 +244,8 @@ int main(int argc, char **argv) {
 	meanPhotonsNumber /= MONTE_CARLO_SAMPLES_NUMBER;
 
 	//variance. Calculate like this to avoid close numbers subtraction
-	FLOAT_TYPE sum1 = 0.0;
-	FLOAT_TYPE sum2 = 0.0;
+	FLOAT_TYPE sum1 = 0.0f;
+	FLOAT_TYPE sum2 = 0.0f;
 	for (int i = 0; i < MONTE_CARLO_SAMPLES_NUMBER; i++) {
 		sum1 += meanPhotonNumbers[i] * meanPhotonNumbers[i];
 		sum2 += 2 * meanPhotonsNumber * meanPhotonNumbers[i];

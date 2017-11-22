@@ -9,8 +9,8 @@
 #define SRC_INCLUDE_MACRO_H_
 
 //used precision
-#define FLOAT_TYPE double
-#define COMPLEX_TYPE MKL_Complex16
+#define FLOAT_TYPE float
+#define COMPLEX_TYPE MKL_Complex8
 
 
 #endif /* SRC_INCLUDE_MACRO_H_ */
