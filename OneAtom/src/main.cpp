@@ -27,9 +27,12 @@ static const COMPLEX_TYPE MULT_T_SIXTH_STEP = COMPLEX_TYPE { T_STEP_SIZE / 6.0f,
 static const COMPLEX_TYPE MULT_TWO = COMPLEX_TYPE { 2.0f, 0.0f };
 static const COMPLEX_TYPE MULT_ONE = COMPLEX_TYPE { 1.0f, 0.0f };
 
-//A sample is a two-dimensional array of slices of the state vector at the steps of discretized time
-//TIME_STEPS_NUMBER + 1 because of elements of the array are points, not segments
-static COMPLEX_TYPE samples[MONTE_CARLO_SAMPLES_NUMBER][TIME_STEPS_NUMBER + 1][DRESSED_BASIS_SIZE];
+//A storage of final states of all realizations
+static COMPLEX_TYPE result[MONTE_CARLO_SAMPLES_NUMBER][DRESSED_BASIS_SIZE];
+//the currently being calculated vector
+static COMPLEX_TYPE step1State[DRESSED_BASIS_SIZE];
+//the previous step vector
+static COMPLEX_TYPE step2State[DRESSED_BASIS_SIZE];
 
 inline void normalizeVector(COMPLEX_TYPE normReversed, COMPLEX_TYPE norm2,
 COMPLEX_TYPE *zeroVector, COMPLEX_TYPE *stateVector) {
@@ -151,17 +154,9 @@ int main(int argc, char **argv) {
 	const int *aCSR3Columns = aCSR3.columns;
 	const COMPLEX_TYPE *aCSR3Values = aCSR3.values;
 
-	//Initialize each sample by the ground state vector
-	for (int i = 0; i < MONTE_CARLO_SAMPLES_NUMBER; i++) {
-		cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, zeroVector, NO_INC,
-				samples[i][0], NO_INC);
-
-		samples[i][0][0] = {1.0f,0.0f};
-	}
-
 	//initialize the threshold for the random jump identification
 	FLOAT_TYPE svNormThreshold;
-	COMPLEX_TYPE (*sample)[DRESSED_BASIS_SIZE];
+	COMPLEX_TYPE *tempState, *curState, *prevState;
 
 	//may be non-sparse calculation would be faster?
 	COMPLEX_TYPE k1[DRESSED_BASIS_SIZE];
@@ -173,8 +168,18 @@ int main(int argc, char **argv) {
 //#pragma omp parallel for
 	for (int sampleIndex = 0; sampleIndex < MONTE_CARLO_SAMPLES_NUMBER;
 			sampleIndex++) {
-//		FLOAT_TYPE t = 0;	//each sample starts at t=0
-		sample = samples[sampleIndex];
+		//Initialize each sample by the ground state vector
+		cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, zeroVector, NO_INC, step1State,
+				NO_INC);
+		step1State[0] = {1.0f,0.0f}; //the ground state
+
+		//initialize pointers
+		tempState = step1State;
+		prevState = step1State;
+		curState = step2State;
+
+		//get a random number for the calculation of the random waiting time
+		//of the next jump
 		svNormThreshold = rndNumBuff[rndNumIndex++];
 
 		//Calculate each sample by the time axis
@@ -187,15 +192,15 @@ int main(int argc, char **argv) {
 			//write the f function
 
 			make4thOrderRungeKuttaStep(HCSR3Values, HCSR3RowIndex, HCSR3Columns,
-					sample[i], sample[i + 1], k1, k2, k3, k4);
+					prevState, curState, k1, k2, k3, k4);
 
 			//...falls below the threshold, which is a random number
 			//uniformly distributed between [0,1] - svNormThreshold
 
 			//if the state vector at t(i+1) has a less square of the norm then the threshold
 			//try a self-written norm?
-			cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, sample[i + 1], NO_INC,
-					sample[i + 1], NO_INC, &norm2);
+			cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC,
+					curState, NO_INC, &norm2);
 			if (svNormThreshold > norm2.real) {
 				//then a jump is occurred between t(i) and t(i+1)
 				//let's suppose it was at time t(i)
@@ -203,22 +208,30 @@ int main(int argc, char **argv) {
 				//calculate the state vector after the jump
 				//store it at t(i+1)
 				mkl_cspblas_ccsrgemv("n", &(DRESSED_BASIS_SIZE), aCSR3Values,
-						aCSR3RowIndex, aCSR3Columns, sample[i], sample[i + 1]);
+						aCSR3RowIndex, aCSR3Columns, prevState, curState);
 				//calculate new norm
-				cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, sample[i + 1],
-						NO_INC, sample[i + 1], NO_INC, &norm2);
+				cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC,
+						curState, NO_INC, &norm2);
 
 				//update the random time
 				svNormThreshold = rndNumBuff[rndNumIndex++];
 
 				//normalize vector
-				normalizeVector(normReversed, norm2, zeroVector, sample[i + 1]);
+				normalizeVector(normReversed, norm2, zeroVector, curState);
 			}
+
+			//update indices
+			tempState = curState;
+			curState = prevState;
+			prevState = tempState;
 		}
 
 		//final state normalization
-		normalizeVector(normReversed, norm2, zeroVector,
-				sample[TIME_STEPS_NUMBER]);
+		normalizeVector(normReversed, norm2, zeroVector, prevState);
+
+		//store
+		cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, prevState, NO_INC,
+				result[sampleIndex], NO_INC);
 	}
 
 	//check if random numbers valid - replace with correct random numbers generation
@@ -239,29 +252,32 @@ int main(int argc, char **argv) {
 	//mult psi on ns
 	FLOAT_TYPE meanPhotonNumbers[MONTE_CARLO_SAMPLES_NUMBER];
 	for (int i = 0; i < MONTE_CARLO_SAMPLES_NUMBER; i++) {
-		vcMul((MKL_INT) DRESSED_BASIS_SIZE, samples[i][TIME_STEPS_NUMBER],
+		vcMul((MKL_INT) DRESSED_BASIS_SIZE, result[i],
 				statePhotonNumber, VECTOR_BUFF[0]);
 		cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, VECTOR_BUFF[0], NO_INC,
-				samples[i][TIME_STEPS_NUMBER], NO_INC, &norm2);
+				result[i], NO_INC, &norm2);
 
-				//store for the variance
+		//store for the variance
 		meanPhotonNumbers[i] = norm2.real;
 	}
 
-	FLOAT_TYPE meanPhotonsNumber = cblas_sasum((MKL_INT)MONTE_CARLO_SAMPLES_NUMBER, meanPhotonNumbers, NO_INC);
+	FLOAT_TYPE meanPhotonsNumber = cblas_sasum(
+			(MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, meanPhotonNumbers, NO_INC);
 	meanPhotonsNumber /= MONTE_CARLO_SAMPLES_NUMBER;
 
 	//variance. Calculate like this to avoid close numbers subtraction
 	//Sum(mean photon numbers)^2
-	FLOAT_TYPE sum1 = cblas_sdsdot((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, 0.0f, meanPhotonNumbers, NO_INC,
-					meanPhotonNumbers, NO_INC);
+	FLOAT_TYPE sum1 = cblas_sdsdot((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, 0.0f,
+			meanPhotonNumbers, NO_INC, meanPhotonNumbers, NO_INC);
 
 	//Sum(2*mean photon number*mean photon number[i])
 	FLOAT_TYPE temp[DRESSED_BASIS_SIZE];
 	cblas_scopy((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, meanPhotonNumbers, NO_INC,
-					temp, NO_INC);
-	cblas_sscal((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, 2.0f * meanPhotonsNumber, temp, NO_INC);
-	FLOAT_TYPE sum2 = cblas_sasum((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, temp, NO_INC);
+			temp, NO_INC);
+	cblas_sscal((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, 2.0f * meanPhotonsNumber,
+			temp, NO_INC);
+	FLOAT_TYPE sum2 = cblas_sasum((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, temp,
+			NO_INC);
 
 	//(a^2 + b^2 - 2 a b)
 	FLOAT_TYPE sum = abs(
