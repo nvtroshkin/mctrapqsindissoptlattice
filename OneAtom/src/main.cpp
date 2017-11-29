@@ -11,104 +11,12 @@
 
 #include <macro.h>
 #include <eval-params.h>
+#include <mkl-constants.h>
+#include <ModelBuilder.h>
 #include <system-constants.h>
-#include <runge-kutta.h>
+#include <Solver.h>
 
 using namespace std;
-
-static const MKL_INT NO_INC = 1; //for the BLAS vector library - not incrementing vectors
-
-static COMPLEX_TYPE VECTOR_BUFF[7][DRESSED_BASIS_SIZE]; //a storage for temporary vectors
-static const COMPLEX_TYPE MULT_T_HALF_STEP = COMPLEX_TYPE { 0.5f * T_STEP_SIZE,
-		0.0f };
-static const COMPLEX_TYPE MULT_T_STEP = COMPLEX_TYPE { T_STEP_SIZE, 0.0f };
-static const COMPLEX_TYPE MULT_T_SIXTH_STEP = COMPLEX_TYPE { T_STEP_SIZE / 6.0f,
-		0.0f };
-static const COMPLEX_TYPE MULT_TWO = COMPLEX_TYPE { 2.0f, 0.0f };
-static const COMPLEX_TYPE MULT_ONE = COMPLEX_TYPE { 1.0f, 0.0f };
-
-//A storage of final states of all realizations
-static COMPLEX_TYPE result[MONTE_CARLO_SAMPLES_NUMBER][DRESSED_BASIS_SIZE];
-//the currently being calculated vector
-static COMPLEX_TYPE step1State[DRESSED_BASIS_SIZE];
-//the previous step vector
-static COMPLEX_TYPE step2State[DRESSED_BASIS_SIZE];
-
-inline void normalizeVector(COMPLEX_TYPE normReversed, COMPLEX_TYPE norm2,
-COMPLEX_TYPE *zeroVector, COMPLEX_TYPE *stateVector) {
-
-	vsSqrt((MKL_INT) 1, &norm2.real, &normReversed.real);
-	normReversed.real = 1.0f / normReversed.real;
-
-	cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, zeroVector, NO_INC,
-			VECTOR_BUFF[0], NO_INC);
-	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &normReversed, stateVector,
-			NO_INC, VECTOR_BUFF[0], NO_INC);
-	//write back
-	cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, VECTOR_BUFF[0], NO_INC,
-			stateVector, NO_INC);
-}
-
-inline void make4thOrderRungeKuttaStep(const COMPLEX_TYPE *HCSR3Values,
-		const int *HCSR3RowIndex, const int *HCSR3Columns,
-		COMPLEX_TYPE *curState, COMPLEX_TYPE *nextState,
-		//auxiliary variables
-		COMPLEX_TYPE *k1, COMPLEX_TYPE *k2, COMPLEX_TYPE *k3,
-		COMPLEX_TYPE *k4) {
-	//k1 = f(t, sample[i]);
-	//to k1
-	mkl_cspblas_ccsrgemv("n", &(DRESSED_BASIS_SIZE), HCSR3Values, HCSR3RowIndex,
-			HCSR3Columns, curState, k1);
-
-	//copy current state to a temporary vector
-	cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC, VECTOR_BUFF[1],
-			NO_INC);
-	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_HALF_STEP, k1, NO_INC,
-			VECTOR_BUFF[1], NO_INC);
-	//k2 = f(t + T_STEP_SIZE / 2.0f, VECTOR_BUFF[1]);
-	mkl_cspblas_ccsrgemv("n", &(DRESSED_BASIS_SIZE), HCSR3Values, HCSR3RowIndex,
-			HCSR3Columns, VECTOR_BUFF[1], k2);
-
-	//same but with another temporary vector for the buffer
-	cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC, VECTOR_BUFF[2],
-			NO_INC);
-	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_HALF_STEP, k2, NO_INC,
-			VECTOR_BUFF[2], NO_INC);
-	//k3 = f(t + T_STEP_SIZE / 2.0f, VECTOR_BUFF[2])
-	mkl_cspblas_ccsrgemv("n", &(DRESSED_BASIS_SIZE), HCSR3Values, HCSR3RowIndex,
-			HCSR3Columns, VECTOR_BUFF[2], k3);
-
-	cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC, VECTOR_BUFF[3],
-			NO_INC);
-	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_STEP, k3, NO_INC,
-			VECTOR_BUFF[3], NO_INC);
-	//k4 = f(t + T_STEP_SIZE, VECTOR_BUFF[3]);
-	mkl_cspblas_ccsrgemv("n", &(DRESSED_BASIS_SIZE), HCSR3Values, HCSR3RowIndex,
-			HCSR3Columns, VECTOR_BUFF[3], k4);
-
-	//store to k1
-	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_TWO, k2, NO_INC, k1,
-			NO_INC);
-	//to k4
-	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_TWO, k3, NO_INC, k4,
-			NO_INC);
-	//to k1
-	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_ONE, k4, NO_INC, k1,
-			NO_INC);
-	//modify sample[i+1]
-	cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC, nextState,
-			NO_INC);
-	cblas_caxpy((MKL_INT) DRESSED_BASIS_SIZE, &MULT_T_SIXTH_STEP, k1, NO_INC,
-			nextState, NO_INC);
-}
-
-void print(char title[], COMPLEX_TYPE array[]) {
-	cout << title << ": {" << endl;
-	for (int v = 0; v < DRESSED_BASIS_SIZE; v++) {
-		cout << array[v].real << " + " << array[v].imag << "i, ";
-	}
-	cout << "}" << endl;
-}
 
 int main(int argc, char **argv) {
 	auto start = chrono::steady_clock::now();
@@ -116,127 +24,48 @@ int main(int argc, char **argv) {
 	//The basis vectors are enumerated flatly, |photon number>|atom state>, |0>|0>, |0>|1> and etc.
 
 	//init cache
-	initPhotonNumbersSqrts();
-
 	COMPLEX_TYPE zeroVector[DRESSED_BASIS_SIZE];
 	for (int i = 0; i < DRESSED_BASIS_SIZE; i++) {
-		zeroVector[i] = {0.0f,0.0f};
+		zeroVector[i].real = 0.0f;
+		zeroVector[i].imag = 0.0f;
 	}
 
-	//create a random numbers stream
-	int rndNumIndex = 0;		//indicates where we are in the buffer
-	FLOAT_TYPE* rndNumBuff = (FLOAT_TYPE *) scalable_aligned_malloc(
-			RND_NUM_BUFF_SIZE * sizeof(FLOAT_TYPE), SIMDALIGN);
-//	for (int i = 0; i < RND_NUM_BUFF_SIZE; i++) {
-//		rndNumBuff[i]=0.0;
-//	}
-	VSLStreamStatePtr Stream;
-	vslNewStream(&Stream, VSL_BRNG_MCG31, RANDSEED);
-	vsRngUniform(VSL_RNG_METHOD_UNIFORM_STD, Stream, RND_NUM_BUFF_SIZE,
-			rndNumBuff, 0.0f, 1.0f);
-//	ofstream myfile;
-//	myfile.open("rnd-numbers.txt");
-//	if (!myfile.is_open()) {
-//		cout << "Can't open file!" << endl;
-//	}
-//	for (int i = 0; i < RND_NUM_BUFF_SIZE; i++) {
-//		myfile << rndNumBuff[i] << ", ";
-//	}
-//	myfile.close();
+	ModelBuilder modelBuilder(MAX_PHOTON_NUMBER, DRESSED_BASIS_SIZE, KAPPA,
+			DELTA_OMEGA, G, LATIN_E);
 
-	CSR3Matrix hCSR3 = getHInCSR3();
-	const int *HCSR3RowIndex = hCSR3.rowIndex;
-	const int *HCSR3Columns = hCSR3.columns;
-	const COMPLEX_TYPE *HCSR3Values = hCSR3.values;
+	const CSR3Matrix * const hCSR3 = modelBuilder.getHInCSR3();
+	const int *HCSR3RowIndex = hCSR3->rowIndex;
+	const int *HCSR3Columns = hCSR3->columns;
+	const COMPLEX_TYPE *HCSR3Values = hCSR3->values;
 
-	CSR3Matrix aCSR3 = getAInCSR3();
-	const int *aCSR3RowIndex = aCSR3.rowIndex;
-	const int *aCSR3Columns = aCSR3.columns;
-	const COMPLEX_TYPE *aCSR3Values = aCSR3.values;
+	const CSR3Matrix * const aCSR3 = modelBuilder.getAInCSR3();
+	const int *aCSR3RowIndex = aCSR3->rowIndex;
+	const int *aCSR3Columns = aCSR3->columns;
+	const COMPLEX_TYPE *aCSR3Values = aCSR3->values;
 
-	//initialize the threshold for the random jump identification
-	FLOAT_TYPE svNormThreshold;
-	COMPLEX_TYPE *tempState, *curState, *prevState;
+	//A storage of final states of all realizations
+	COMPLEX_TYPE result[MONTE_CARLO_SAMPLES_NUMBER][DRESSED_BASIS_SIZE];
+	//the previous step vector
+	COMPLEX_TYPE step1State[DRESSED_BASIS_SIZE];
+	//the currently being calculated vector
+	COMPLEX_TYPE step2State[DRESSED_BASIS_SIZE];
 
-	//may be non-sparse calculation would be faster?
-	COMPLEX_TYPE k1[DRESSED_BASIS_SIZE];
-	COMPLEX_TYPE k2[DRESSED_BASIS_SIZE];
-	COMPLEX_TYPE k3[DRESSED_BASIS_SIZE];
-	COMPLEX_TYPE k4[DRESSED_BASIS_SIZE];
-	COMPLEX_TYPE norm2 = { 1.0f, 0.0f };
-	COMPLEX_TYPE normReversed = { 1.0f, 0.0f };
+	Solver solver((MKL_INT) DRESSED_BASIS_SIZE);
+
 //#pragma omp parallel for
 	for (int sampleIndex = 0; sampleIndex < MONTE_CARLO_SAMPLES_NUMBER;
 			sampleIndex++) {
 		//Initialize each sample by the ground state vector
-		cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, zeroVector, NO_INC, step1State,
-				NO_INC);
-		step1State[0] = {1.0f,0.0f}; //the ground state
+		cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, zeroVector, NO_INC,
+				step1State, NO_INC);
+		step1State[0].real = 1.0f; //the ground state
 
-		//initialize pointers
-		tempState = step1State;
-		prevState = step1State;
-		curState = step2State;
-
-		//get a random number for the calculation of the random waiting time
-		//of the next jump
-		svNormThreshold = rndNumBuff[rndNumIndex++];
-
-		//Calculate each sample by the time axis
-		for (int i = 0; i < TIME_STEPS_NUMBER; i++) {
-			//Before the next jump there is deterministic evolution guided by
-			//the Shroedinger's equation
-
-			//A jump occurs between t(i) and t(i+1) when square of the state vector norm
-			//at t(i+1)...
-			//write the f function
-
-			make4thOrderRungeKuttaStep(HCSR3Values, HCSR3RowIndex, HCSR3Columns,
-					prevState, curState, k1, k2, k3, k4);
-
-			//...falls below the threshold, which is a random number
-			//uniformly distributed between [0,1] - svNormThreshold
-
-			//if the state vector at t(i+1) has a less square of the norm then the threshold
-			//try a self-written norm?
-			cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC,
-					curState, NO_INC, &norm2);
-			if (svNormThreshold > norm2.real) {
-				//then a jump is occurred between t(i) and t(i+1)
-				//let's suppose it was at time t(i)
-
-				//calculate the state vector after the jump
-				//store it at t(i+1)
-				mkl_cspblas_ccsrgemv("n", &(DRESSED_BASIS_SIZE), aCSR3Values,
-						aCSR3RowIndex, aCSR3Columns, prevState, curState);
-				//calculate new norm
-				cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, curState, NO_INC,
-						curState, NO_INC, &norm2);
-
-				//update the random time
-				svNormThreshold = rndNumBuff[rndNumIndex++];
-
-				//normalize vector
-				normalizeVector(normReversed, norm2, zeroVector, curState);
-			}
-
-			//update indices
-			tempState = curState;
-			curState = prevState;
-			prevState = tempState;
-		}
-
-		//final state normalization
-		normalizeVector(normReversed, norm2, zeroVector, prevState);
+		solver.solve(HCSR3Values, HCSR3RowIndex, HCSR3Columns, aCSR3Values,
+				aCSR3RowIndex, aCSR3Columns, step1State, step2State);
 
 		//store
-		cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, prevState, NO_INC,
+		cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, step2State, NO_INC,
 				result[sampleIndex], NO_INC);
-	}
-
-	//check if random numbers valid - replace with correct random numbers generation
-	if (rndNumIndex >= RND_NUM_BUFF_SIZE) {
-		cout << "No more random numbers" << endl;
 	}
 
 	//now the Monte-Carlo simulations are over
@@ -245,16 +74,18 @@ int main(int argc, char **argv) {
 	//an auxiliary array with photon numbers for each basis vector is needed
 	COMPLEX_TYPE statePhotonNumber[DRESSED_BASIS_SIZE];
 	for (int i = 0; i < DRESSED_BASIS_SIZE; i++) {
-		statePhotonNumber[i] = {(FLOAT_TYPE)n(i),0.0f};
+		statePhotonNumber[i] = {(FLOAT_TYPE)modelBuilder.n(i),0.0f};
 	}
 
 	//Sum(<psi|n|psi>)
 	//mult psi on ns
 	FLOAT_TYPE meanPhotonNumbers[MONTE_CARLO_SAMPLES_NUMBER];
+	COMPLEX_TYPE norm2;
+	COMPLEX_TYPE tempVector[DRESSED_BASIS_SIZE];
 	for (int i = 0; i < MONTE_CARLO_SAMPLES_NUMBER; i++) {
-		vcMul((MKL_INT) DRESSED_BASIS_SIZE, result[i],
-				statePhotonNumber, VECTOR_BUFF[0]);
-		cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, VECTOR_BUFF[0], NO_INC,
+		vcMul((MKL_INT) DRESSED_BASIS_SIZE, result[i], statePhotonNumber,
+				tempVector);
+		cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, tempVector, NO_INC,
 				result[i], NO_INC, &norm2);
 
 		//store for the variance
@@ -289,15 +120,6 @@ int main(int argc, char **argv) {
 			sum
 					/ (MONTE_CARLO_SAMPLES_NUMBER
 							* (MONTE_CARLO_SAMPLES_NUMBER - 1)));
-
-	//free resources
-	delete[] hCSR3.values;
-	delete[] hCSR3.columns;
-	delete[] hCSR3.rowIndex;
-
-	delete[] aCSR3.values;
-	delete[] aCSR3.columns;
-	delete[] aCSR3.rowIndex;
 
 	cout << "Mean photons number: " << meanPhotonsNumber << "\n";
 	cout << "Variance: " << variance << endl;
