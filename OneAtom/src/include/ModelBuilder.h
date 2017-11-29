@@ -8,9 +8,9 @@
 #ifndef SRC_MODEL_BUILDER_H
 #define SRC_MODEL_BUILDER_H
 
-#include <macro.h>
-#include <mkl.h>
+#include <mkl_types.h>
 #include <eval-params.h>
+#include <precision-definition.h>
 
 //struct MatrixDiagForm {
 //	int diagDistLength;

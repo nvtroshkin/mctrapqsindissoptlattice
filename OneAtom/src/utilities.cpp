@@ -5,7 +5,7 @@
  *      Author: fake_sci
  */
 
-#include <macro.h>
+#include <precision-definition.h>
 #include <iostream>
 
 using namespace std;

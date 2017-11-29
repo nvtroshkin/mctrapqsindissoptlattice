@@ -1,18 +1,14 @@
 #include <iostream>
 #include <fstream>
-#include <mkl.h>
-#include <mkl_types.h>
-#include <mkl_vsl.h>
-#include <scalable_allocator.h>
 #include <math.h>
 #include <cmath>
 #include <chrono>
 #include <omp.h>
 
-#include <macro.h>
 #include <eval-params.h>
 #include <mkl-constants.h>
 #include <ModelBuilder.h>
+#include <precision-definition.h>
 #include <system-constants.h>
 #include <Solver.h>
 
@@ -26,8 +22,8 @@ int main(int argc, char **argv) {
 	//init cache
 	COMPLEX_TYPE zeroVector[DRESSED_BASIS_SIZE];
 	for (int i = 0; i < DRESSED_BASIS_SIZE; i++) {
-		zeroVector[i].real = 0.0f;
-		zeroVector[i].imag = 0.0f;
+		zeroVector[i].real = 0.0;
+		zeroVector[i].imag = 0.0;
 	}
 
 	ModelBuilder modelBuilder(MAX_PHOTON_NUMBER, DRESSED_BASIS_SIZE, KAPPA,
@@ -56,15 +52,15 @@ int main(int argc, char **argv) {
 	for (int sampleIndex = 0; sampleIndex < MONTE_CARLO_SAMPLES_NUMBER;
 			sampleIndex++) {
 		//Initialize each sample by the ground state vector
-		cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, zeroVector, NO_INC,
+		complex_cblas_copy((MKL_INT) DRESSED_BASIS_SIZE, zeroVector, NO_INC,
 				step1State, NO_INC);
-		step1State[0].real = 1.0f; //the ground state
+		step1State[0].real = 1.0; //the ground state
 
 		solver.solve(HCSR3Values, HCSR3RowIndex, HCSR3Columns, aCSR3Values,
 				aCSR3RowIndex, aCSR3Columns, step1State, step2State);
 
 		//store
-		cblas_ccopy((MKL_INT) DRESSED_BASIS_SIZE, step2State, NO_INC,
+		complex_cblas_copy((MKL_INT) DRESSED_BASIS_SIZE, step2State, NO_INC,
 				result[sampleIndex], NO_INC);
 	}
 
@@ -74,7 +70,7 @@ int main(int argc, char **argv) {
 	//an auxiliary array with photon numbers for each basis vector is needed
 	COMPLEX_TYPE statePhotonNumber[DRESSED_BASIS_SIZE];
 	for (int i = 0; i < DRESSED_BASIS_SIZE; i++) {
-		statePhotonNumber[i] = {(FLOAT_TYPE)modelBuilder.n(i),0.0f};
+		statePhotonNumber[i] = {(FLOAT_TYPE)modelBuilder.n(i),0.0};
 	}
 
 	//Sum(<psi|n|psi>)
@@ -83,31 +79,31 @@ int main(int argc, char **argv) {
 	COMPLEX_TYPE norm2;
 	COMPLEX_TYPE tempVector[DRESSED_BASIS_SIZE];
 	for (int i = 0; i < MONTE_CARLO_SAMPLES_NUMBER; i++) {
-		vcMul((MKL_INT) DRESSED_BASIS_SIZE, result[i], statePhotonNumber,
+		complex_vMul((MKL_INT) DRESSED_BASIS_SIZE, result[i], statePhotonNumber,
 				tempVector);
-		cblas_cdotc_sub((MKL_INT) DRESSED_BASIS_SIZE, tempVector, NO_INC,
+		complex_cblas_dotc_sub((MKL_INT) DRESSED_BASIS_SIZE, tempVector, NO_INC,
 				result[i], NO_INC, &norm2);
 
 		//store for the variance
 		meanPhotonNumbers[i] = norm2.real;
 	}
 
-	FLOAT_TYPE meanPhotonsNumber = cblas_sasum(
+	FLOAT_TYPE meanPhotonsNumber = cblas_asum(
 			(MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, meanPhotonNumbers, NO_INC);
 	meanPhotonsNumber /= MONTE_CARLO_SAMPLES_NUMBER;
 
 	//variance. Calculate like this to avoid close numbers subtraction
 	//Sum(mean photon numbers)^2
-	FLOAT_TYPE sum1 = cblas_sdsdot((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, 0.0f,
+	FLOAT_TYPE sum1 = cblas_dot((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER,
 			meanPhotonNumbers, NO_INC, meanPhotonNumbers, NO_INC);
 
 	//Sum(2*mean photon number*mean photon number[i])
 	FLOAT_TYPE temp[DRESSED_BASIS_SIZE];
-	cblas_scopy((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, meanPhotonNumbers, NO_INC,
+	cblas_copy((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, meanPhotonNumbers, NO_INC,
 			temp, NO_INC);
-	cblas_sscal((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, 2.0f * meanPhotonsNumber,
+	cblas_scal((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, 2.0 * meanPhotonsNumber,
 			temp, NO_INC);
-	FLOAT_TYPE sum2 = cblas_sasum((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, temp,
+	FLOAT_TYPE sum2 = cblas_asum((MKL_INT) MONTE_CARLO_SAMPLES_NUMBER, temp,
 			NO_INC);
 
 	//(a^2 + b^2 - 2 a b)

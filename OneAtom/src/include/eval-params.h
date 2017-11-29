@@ -8,7 +8,7 @@
 #ifndef SRC_EVAL_PARAMS_H_
 #define SRC_EVAL_PARAMS_H_
 
-#include <macro.h>
+#include <precision-definition.h>
 
 //the dressed basis
 static const int MAX_PHOTON_NUMBER = 10;

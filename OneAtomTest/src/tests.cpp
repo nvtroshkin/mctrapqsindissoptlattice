@@ -3,8 +3,8 @@
 #include "gmock/gmock.h"
 #include "mkl.h"
 
-#include <macro.h>
 #include <ModelBuilder.h>
+#include <precision-definition.h>
 #include <Solver.h>
 
 using namespace testing;

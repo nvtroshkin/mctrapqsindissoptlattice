@@ -8,7 +8,7 @@
 #ifndef SRC_INCLUDE_MKL_CONSTANTS_H_
 #define SRC_INCLUDE_MKL_CONSTANTS_H_
 
-#include <mkl.h>
+#include <mkl_types.h>
 
 static const MKL_INT NO_INC = 1; //for the BLAS vector library - not incrementing vectors
 

@@ -8,7 +8,7 @@
 #ifndef SRC_INCLUDE_SOLVER_H_
 #define SRC_INCLUDE_SOLVER_H_
 
-#include <macro.h>
+#include <precision-definition.h>
 
 class Solver {
 	static COMPLEX_TYPE MULT_T_HALF_STEP;

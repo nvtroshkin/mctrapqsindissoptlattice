@@ -5,15 +5,13 @@
  *      Author: fake_sci
  */
 
-#include <mkl_types.h>
-#include <mkl_vsl.h>
+#include <mkl.h>
 #include <scalable_allocator.h>
 #include <iostream>
 
-#include <macro.h>
-#include <mkl.h>
 #include <eval-params.h>
 #include <mkl-constants.h>
+#include <precision-definition.h>
 
 using namespace std;
 
@@ -29,7 +27,7 @@ class Solver {
 	COMPLEX_TYPE *k1, *k2, *k3, *k4, *tempVector;
 
 	//norms
-	COMPLEX_TYPE norm2 { 1.0f, 0.0f }, normReversed { 1.0f, 0.0f };
+	COMPLEX_TYPE norm2 { 1.0, 0.0 }, normReversed { 1.0, 0.0 };
 
 	//random numbers
 	int rndNumIndex;	//indicates where we are in the buffer
@@ -57,18 +55,18 @@ public:
 			COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState);
 };
 
-COMPLEX_TYPE Solver::MULT_T_HALF_STEP { 0.5f * T_STEP_SIZE, 0.0f };
-COMPLEX_TYPE Solver::MULT_T_STEP { T_STEP_SIZE, 0.0f };
-COMPLEX_TYPE Solver::MULT_T_SIXTH_STEP { T_STEP_SIZE / 6.0f, 0.0f };
-COMPLEX_TYPE Solver::MULT_TWO { 2.0f, 0.0f };
-COMPLEX_TYPE Solver::MULT_ONE { 1.0f, 0.0f };
+COMPLEX_TYPE Solver::MULT_T_HALF_STEP { 0.5 * T_STEP_SIZE, 0.0 };
+COMPLEX_TYPE Solver::MULT_T_STEP { T_STEP_SIZE, 0.0 };
+COMPLEX_TYPE Solver::MULT_T_SIXTH_STEP { T_STEP_SIZE / 6.0, 0.0 };
+COMPLEX_TYPE Solver::MULT_TWO { 2.0, 0.0 };
+COMPLEX_TYPE Solver::MULT_ONE { 1.0, 0.0 };
 
 Solver::Solver(MKL_INT basisSize) :
 		rndNumIndex(0), basisSize(basisSize) {
 	zeroVector = new COMPLEX_TYPE[basisSize];
 	for (int i = 0; i < basisSize; i++) {
-		zeroVector[i].real = 0.0f;
-		zeroVector[i].imag = 0.0f;
+		zeroVector[i].real = 0.0;
+		zeroVector[i].imag = 0.0;
 	}
 
 	k1 = new COMPLEX_TYPE[basisSize];
@@ -87,8 +85,8 @@ Solver::Solver(MKL_INT basisSize) :
 	//	}
 
 	vslNewStream(&Stream, VSL_BRNG_MCG31, RANDSEED);
-	vsRngUniform(VSL_RNG_METHOD_UNIFORM_STD, Stream, RND_NUM_BUFF_SIZE,
-			rndNumBuff, 0.0f, 1.0f);
+	vRngUniform(VSL_RNG_METHOD_UNIFORM_STD, Stream, RND_NUM_BUFF_SIZE,
+			rndNumBuff, 0.0, 1.0);
 
 	//save the realization to a file
 	//	ofstream myfile;
@@ -144,17 +142,17 @@ void Solver::solve(const COMPLEX_TYPE *HCSR3Values, const int *HCSR3RowIndex,
 
 		//if the state vector at t(i+1) has a less square of the norm then the threshold
 		//try a self-written norm?
-		cblas_cdotc_sub(basisSize, curState, NO_INC, curState, NO_INC, &norm2);
+		complex_cblas_dotc_sub(basisSize, curState, NO_INC, curState, NO_INC, &norm2);
 		if (svNormThreshold > norm2.real) {
 			//then a jump is occurred between t(i) and t(i+1)
 			//let's suppose it was at time t(i)
 
 			//calculate the state vector after the jump
 			//store it at t(i+1)
-			mkl_cspblas_ccsrgemv("n", &basisSize, aCSR3Values,
+			complex_mkl_cspblas_csrgemv("n", &basisSize, aCSR3Values,
 					aCSR3RowIndex, aCSR3Columns, prevState, curState);
 			//calculate new norm
-			cblas_cdotc_sub(basisSize, curState, NO_INC, curState, NO_INC,
+			complex_cblas_dotc_sub(basisSize, curState, NO_INC, curState, NO_INC,
 					&norm2);
 
 			//update the random time
@@ -191,48 +189,48 @@ inline void Solver::make4thOrderRungeKuttaStep(const COMPLEX_TYPE *HCSR3Values,
 
 	//k1 = f(t, sample[i]);
 	//to k1
-	mkl_cspblas_ccsrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
+	complex_mkl_cspblas_csrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
 			HCSR3Columns, prevState, k1);
 
 	//copy current state to a temporary vector
-	cblas_ccopy(basisSize, prevState, NO_INC, curState, NO_INC);
-	cblas_caxpy(basisSize, &MULT_T_HALF_STEP, k1, NO_INC, curState, NO_INC);
+	complex_cblas_copy(basisSize, prevState, NO_INC, curState, NO_INC);
+	complex_cblas_axpy(basisSize, &MULT_T_HALF_STEP, k1, NO_INC, curState, NO_INC);
 	//k2 = f(t + T_STEP_SIZE / 2.0f, VECTOR_BUFF[1]);
-	mkl_cspblas_ccsrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
+	complex_mkl_cspblas_csrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
 			HCSR3Columns, curState, k2);
 
 	//same but with another temporary vector for the buffer
-	cblas_ccopy(basisSize, prevState, NO_INC, curState, NO_INC);
-	cblas_caxpy(basisSize, &MULT_T_HALF_STEP, k2, NO_INC, curState, NO_INC);
+	complex_cblas_copy(basisSize, prevState, NO_INC, curState, NO_INC);
+	complex_cblas_axpy(basisSize, &MULT_T_HALF_STEP, k2, NO_INC, curState, NO_INC);
 	//k3 = f(t + T_STEP_SIZE / 2.0f, VECTOR_BUFF[2])
-	mkl_cspblas_ccsrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
+	complex_mkl_cspblas_csrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
 			HCSR3Columns, curState, k3);
 
-	cblas_ccopy(basisSize, prevState, NO_INC, curState, NO_INC);
-	cblas_caxpy(basisSize, &MULT_T_STEP, k3, NO_INC, curState, NO_INC);
+	complex_cblas_copy(basisSize, prevState, NO_INC, curState, NO_INC);
+	complex_cblas_axpy(basisSize, &MULT_T_STEP, k3, NO_INC, curState, NO_INC);
 	//k4 = f(t + T_STEP_SIZE, VECTOR_BUFF[3]);
-	mkl_cspblas_ccsrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
+	complex_mkl_cspblas_csrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
 			HCSR3Columns, curState, k4);
 
 	//store to k1
-	cblas_caxpy(basisSize, &MULT_TWO, k2, NO_INC, k1, NO_INC);
+	complex_cblas_axpy(basisSize, &MULT_TWO, k2, NO_INC, k1, NO_INC);
 	//to k4
-	cblas_caxpy(basisSize, &MULT_TWO, k3, NO_INC, k4, NO_INC);
+	complex_cblas_axpy(basisSize, &MULT_TWO, k3, NO_INC, k4, NO_INC);
 	//to k1
-	cblas_caxpy(basisSize, &MULT_ONE, k4, NO_INC, k1, NO_INC);
+	complex_cblas_axpy(basisSize, &MULT_ONE, k4, NO_INC, k1, NO_INC);
 	//modify sample[i+1]
-	cblas_ccopy(basisSize, prevState, NO_INC, curState, NO_INC);
-	cblas_caxpy(basisSize, &MULT_T_SIXTH_STEP, k1, NO_INC, curState, NO_INC);
+	complex_cblas_copy(basisSize, prevState, NO_INC, curState, NO_INC);
+	complex_cblas_axpy(basisSize, &MULT_T_SIXTH_STEP, k1, NO_INC, curState, NO_INC);
 }
 
 inline void Solver::normalizeVector(COMPLEX_TYPE *stateVector) {
-	vsSqrt((MKL_INT) 1, &(norm2.real), &(normReversed.real));
-	normReversed.real = 1.0f / normReversed.real;
+	vSqrt((MKL_INT) 1, &(norm2.real), &(normReversed.real));
+	normReversed.real = 1.0 / normReversed.real;
 
-	cblas_ccopy(basisSize, zeroVector, NO_INC, tempVector, NO_INC);
-	cblas_caxpy(basisSize, &normReversed, stateVector, NO_INC, tempVector,
+	complex_cblas_copy(basisSize, zeroVector, NO_INC, tempVector, NO_INC);
+	complex_cblas_axpy(basisSize, &normReversed, stateVector, NO_INC, tempVector,
 			NO_INC);
 	//write back
-	cblas_ccopy(basisSize, tempVector, NO_INC, stateVector, NO_INC);
+	complex_cblas_copy(basisSize, tempVector, NO_INC, stateVector, NO_INC);
 }
 

@@ -3,12 +3,11 @@
  *      Author: fake_sci
  */
 
-#include <macro.h>
 #include <iostream>
-#include <mkl.h>
 #include <system-constants.h>
 #include <eval-params.h>	//probably, should not be here
 #include <ModelBuilder.h>
+#include <precision-definition.h>
 
 ModelBuilder::ModelBuilder(int maxPhotonNumber, MKL_INT basisSize,
 		FLOAT_TYPE kappa, FLOAT_TYPE deltaOmega, FLOAT_TYPE g,
@@ -20,7 +19,7 @@ ModelBuilder::ModelBuilder(int maxPhotonNumber, MKL_INT basisSize,
 	for (int k = 0; k < maxPhotonNumber + 1; k++) {
 		photonNumbers[k] = k;
 	}
-	vsSqrt((MKL_INT) (maxPhotonNumber + 1), photonNumbers,
+	vSqrt((MKL_INT) (maxPhotonNumber + 1), photonNumbers,
 			sqrtsOfPhotonNumbers);
 
 	A_IN_CSR3 = createAInCSR3();
