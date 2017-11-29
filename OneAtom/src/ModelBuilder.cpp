@@ -4,15 +4,16 @@
  */
 
 #include <iostream>
-#include <system-constants.h>
-#include <eval-params.h>	//probably, should not be here
-#include <ModelBuilder.h>
 #include <precision-definition.h>
+#include <CSR3Matrix.h>
+#include <utilities.h>
+
+#include <ModelBuilder.h>
 
 ModelBuilder::ModelBuilder(int maxPhotonNumber, MKL_INT basisSize,
 		FLOAT_TYPE kappa, FLOAT_TYPE deltaOmega, FLOAT_TYPE g,
 		FLOAT_TYPE latinE) :
-		BASIS_SIZE(basisSize), KAPPA(kappa), DELTA_OMEGA(deltaOmega), G(g), LATIN_E(
+		basisSize(basisSize), kappa(kappa), deltaOmega(deltaOmega), g(g), latinE(
 				latinE) {
 	sqrtsOfPhotonNumbers = new FLOAT_TYPE[maxPhotonNumber + 1]; //plus a zero photons state
 	FLOAT_TYPE photonNumbers[maxPhotonNumber + 1];
@@ -22,16 +23,16 @@ ModelBuilder::ModelBuilder(int maxPhotonNumber, MKL_INT basisSize,
 	vSqrt((MKL_INT) (maxPhotonNumber + 1), photonNumbers,
 			sqrtsOfPhotonNumbers);
 
-	A_IN_CSR3 = createAInCSR3();
-	A_PLUS_IN_CSR3 = createAPlusInCSR3();
-	H_IN_CSR3 = createHInCSR3();
+	aInCSR3 = createAInCSR3();
+	aPlusInCSR3 = createAPlusInCSR3();
+	hInCSR3 = createHInCSR3();
 }
 
 ModelBuilder::~ModelBuilder() {
 	delete[] sqrtsOfPhotonNumbers;
-	delete A_IN_CSR3;
-	delete A_PLUS_IN_CSR3;
-	delete H_IN_CSR3;
+	delete aInCSR3;
+	delete aPlusInCSR3;
+	delete hInCSR3;
 }
 
 //to obtain a just swap i and j
@@ -55,25 +56,25 @@ FLOAT_TYPE ModelBuilder::sigmaPlus(int i, int j) {
 inline COMPLEX_TYPE ModelBuilder::H(int i, int j) {
 	//the real part of the matrix element
 	FLOAT_TYPE imaginary = 0.0f;
-	for (int k = 0; k < BASIS_SIZE; k++) {
+	for (int k = 0; k < basisSize; k++) {
 		imaginary -=
-				-DELTA_OMEGA
+				-deltaOmega
 						* (aPlus(i, k) * aPlus(j, k)
 								+ sigmaPlus(i, k) * sigmaPlus(j, k))
-						+ G
+						+ g
 								* (aPlus(k, i) * sigmaPlus(k, j)
 										+ aPlus(i, k) * sigmaPlus(j, k));
 	}
 
-	imaginary -= LATIN_E * (aPlus(i, j) + aPlus(j, i));
+	imaginary -= latinE * (aPlus(i, j) + aPlus(j, i));
 
 	//the imaginary
 	FLOAT_TYPE real = 0.0f;
-	for (int k = 0; k < BASIS_SIZE; k++) {
+	for (int k = 0; k < basisSize; k++) {
 		real -= aPlus(i, k) * aPlus(j, k);
 	}
 
-	real *= KAPPA;
+	real *= kappa;
 
 	return {real, imaginary};
 }
@@ -87,14 +88,14 @@ inline CSR3Matrix *ModelBuilder::createAPlusInCSR3() {
 	//   1000
 	//   0100
 
-	CSR3Matrix *csr3Matrix = new CSR3Matrix(BASIS_SIZE, BASIS_SIZE);
+	CSR3Matrix *csr3Matrix = new CSR3Matrix(basisSize, basisSize);
 
 	const int vertOffset = 2;
 
 	int colNum;
 	int currValueIndex = -1;	//to hold current index
 	int i;
-	for (i = 0; i < BASIS_SIZE; i++) {
+	for (i = 0; i < basisSize; i++) {
 		colNum = i - vertOffset;
 		currValueIndex++;
 		if (colNum >= 0) {
@@ -119,22 +120,22 @@ inline CSR3Matrix *ModelBuilder::createAInCSR3() {
 	// 0000-
 	// 0000 -
 
-	CSR3Matrix *csr3Matrix = new CSR3Matrix(BASIS_SIZE, BASIS_SIZE);
+	CSR3Matrix *csr3Matrix = new CSR3Matrix(basisSize, basisSize);
 
 	const int tailPadding = 2;//additional zero elements in place of zero rows at the bottom
 
 	int colNum;
 	int currValueIndex = -1;	//to hold current index
 	int i;
-	for (i = 0; i < BASIS_SIZE; i++) {
+	for (i = 0; i < basisSize; i++) {
 		colNum = i + tailPadding;
 		currValueIndex++;
-		if (colNum < BASIS_SIZE) {
+		if (colNum < basisSize) {
 			csr3Matrix->values[currValueIndex] = {aPlus(colNum, i),0}; //swap arguments
 			csr3Matrix->columns[currValueIndex] = colNum;
 		} else {
 			csr3Matrix->values[currValueIndex] = {0,0}; //the first two rows - by zero
-			csr3Matrix->columns[currValueIndex] = BASIS_SIZE - 1;
+			csr3Matrix->columns[currValueIndex] = basisSize - 1;
 		}
 		csr3Matrix->rowIndex[i] = currValueIndex;	//each value on its own row
 	}
@@ -156,15 +157,15 @@ inline CSR3Matrix *ModelBuilder::createHInCSR3() {
 	const int diagsNumber = 5;
 	const int halfDiagsNumber = diagsNumber / 2;
 
-	CSR3Matrix *csr3Matrix = new CSR3Matrix(BASIS_SIZE, BASIS_SIZE * diagsNumber - 6);
+	CSR3Matrix *csr3Matrix = new CSR3Matrix(basisSize, basisSize * diagsNumber - 6);
 
 	int colNum;
 	int currValueIndex = -1;
 	int i;
-	for (i = 0; i < BASIS_SIZE; i++) {
+	for (i = 0; i < basisSize; i++) {
 		for (int j = 0; j < diagsNumber; j++) {
 			colNum = i - halfDiagsNumber + j;
-			if (colNum >= 0 && colNum < BASIS_SIZE) {
+			if (colNum >= 0 && colNum < basisSize) {
 				currValueIndex++;
 				csr3Matrix->values[currValueIndex] = H(i, colNum);
 				csr3Matrix->columns[currValueIndex] = colNum;
@@ -173,9 +174,9 @@ inline CSR3Matrix *ModelBuilder::createHInCSR3() {
 
 		if (i < halfDiagsNumber) {
 			csr3Matrix->rowIndex[i] = currValueIndex - halfDiagsNumber - i;
-		} else if (i >= BASIS_SIZE - halfDiagsNumber) {
+		} else if (i >= basisSize - halfDiagsNumber) {
 			csr3Matrix->rowIndex[i] = currValueIndex - halfDiagsNumber + 1
-					- BASIS_SIZE + i;
+					- basisSize + i;
 		} else {
 			csr3Matrix->rowIndex[i] = currValueIndex - diagsNumber + 1;
 		}

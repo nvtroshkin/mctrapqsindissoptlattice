@@ -8,13 +8,13 @@
 #include <precision-definition.h>
 #include <iostream>
 
-using namespace std;
+using std::endl;
 
-void print(char title[], COMPLEX_TYPE array[], int arraySize) {
-	cout << title << ": {" << endl;
+void print(std::ostream &os, const char title[], const COMPLEX_TYPE array[], int arraySize) {
+	os << title << ": {" << endl;
 	for (int v = 0; v < arraySize; v++) {
-		cout << array[v].real << " + " << array[v].imag << "i, ";
+		os << array[v].real << " + " << array[v].imag << "i, ";
 	}
-	cout << "}" << endl;
+	os << "}" << endl;
 }
 

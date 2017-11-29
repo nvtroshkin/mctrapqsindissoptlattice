@@ -9,43 +9,60 @@
 #define SRC_INCLUDE_SOLVER_H_
 
 #include <precision-definition.h>
+#include <iostream>
+#include <CSR3Matrix.h>
+#include <ModelBuilder.h>
+#include <RndNumProvider.h>
 
 class Solver {
-	static COMPLEX_TYPE MULT_T_HALF_STEP;
-	static COMPLEX_TYPE MULT_T_STEP;
-	static COMPLEX_TYPE MULT_T_SIXTH_STEP;
-	static COMPLEX_TYPE MULT_TWO;
-	static COMPLEX_TYPE MULT_ONE;
+	// Use typed constants instead of #define
+	static const int RND_NUM_BUFF_SIZE = 8 * 1024;
+	//an alignment for memory in a multithreaded environment
+	static const int SIMDALIGN = 1024;
 
-	COMPLEX_TYPE *zeroVector;
+	const COMPLEX_TYPE complexTHalfStep;
+	const COMPLEX_TYPE complexTStep;
+	const COMPLEX_TYPE complexTSixthStep;
+	const COMPLEX_TYPE complexTwo;
+	const COMPLEX_TYPE complexOne;
 
-	COMPLEX_TYPE *k1, *k2, *k3, *k4, *tempVector;
+	const MKL_INT basisSize;
+	const int timeStepsNumber;
 
 	//norms
-	COMPLEX_TYPE norm2, normReversed;
+	COMPLEX_TYPE norm2 { 1.0, 0.0 }, normReversed { 1.0, 0.0 };
 
 	//random numbers
 	int rndNumIndex;	//indicates where we are in the buffer
 	FLOAT_TYPE *rndNumBuff;
 
-	MKL_INT basisSize;
+	//the model
+	const CSR3Matrix * const hCSR3;
+	const CSR3Matrix * const aCSR3;
+	const CSR3Matrix * const aPlusCSR3;
 
-	void make4thOrderRungeKuttaStep(const COMPLEX_TYPE *HCSR3Values,
-			const int *HCSR3RowIndex, const int *HCSR3Columns,
-			const COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState);
+	RndNumProvider &rndNumProvider;
+
+	//caches
+	COMPLEX_TYPE *zeroVector;COMPLEX_TYPE *k1, *k2, *k3, *k4, *tempVector,
+			*prevState, *curState;
+
+	void make4thOrderRungeKuttaStep(std::ostream &consoleStream,
+			const COMPLEX_TYPE *HCSR3Values, const int *HCSR3RowIndex,
+			const int *HCSR3Columns);
 
 	void normalizeVector(COMPLEX_TYPE *stateVector);
+
 public:
-	Solver(MKL_INT basisSize);
+	Solver(MKL_INT basisSize, FLOAT_TYPE timeStep, int timeStepsNumber,
+			ModelBuilder &modelBuilder, RndNumProvider &rndNumProvider);
 	~Solver();
 
 	/**
 	 * Stores the final result in the curStep
 	 */
-	void solve(const COMPLEX_TYPE *HCSR3Values, const int *HCSR3RowIndex,
-			const int *HCSR3Columns, const COMPLEX_TYPE *aCSR3Values,
-			const int *aCSR3RowIndex, const int *aCSR3Columns,
-			COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState);
+	void solve(std::ostream &consoleStream, const COMPLEX_TYPE * initialState,
+	COMPLEX_TYPE * const resultState);
 };
 
 #endif /* SRC_INCLUDE_SOLVER_H_ */

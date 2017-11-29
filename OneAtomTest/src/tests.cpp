@@ -6,6 +6,10 @@
 #include <ModelBuilder.h>
 #include <precision-definition.h>
 #include <Solver.h>
+#include <cmath>
+#include <ImpreciseValue.h>
+#include <MonteCarloSimulator.h>
+#include <RndNumProviderImpl.h>
 
 using namespace testing;
 
@@ -20,8 +24,22 @@ MATCHER_P (ComplexNumberEquals, a, ""){
 return a.real == arg.real && a.imag == arg.imag;
 }
 
+MATCHER_P (ComplexEq8digits, a, ""){
+//	*result_listener << "where the remainder is " << (arg % n);
+return (a.real == arg.real || std::abs(a.real - arg.real)/std::max(a.real, arg.real)< 10e-9)
+&& (a.imag == arg.imag || std::abs(a.imag - arg.imag)/std::max(a.imag, arg.imag)< 10e-9);
+}
+
+MATCHER_P (FloatEq8digits, a, ""){
+return (a == arg || std::abs(a - arg)/std::max(a, arg)< 10e-9);
+}
+
+MATCHER_P2 (FloatEqNdigits, a, n, ""){
+return (a == arg || std::abs(a - arg)/std::max(a, arg)< pow(10,-n));
+}
+
 ::std::ostream& operator<<(::std::ostream& os, const COMPLEX_TYPE& c) {
-	return os << c.real << " + " << c.imag << "i";
+	return os << c.real << (c.imag < 0 ? " - " : " + ") << c.imag << "i";
 }
 
 /**
@@ -281,10 +299,11 @@ TEST (a_CSR3_form_test, ALL) {
 
 /**
  *	nMax = 1
- *	maxIndex = 3 (the basis size)
+ *	maxIndex = 3 (the basis size = 4)
  *
- *	timeStep = 0.001
+ *	timeStep = 0.1
  *	iMax = 1 (total steps)
+ *	Rand_seed = 345777
  *
  *	KAPPA = 1.0f;
  *	DELTA_OMEGA = 20.0f;
@@ -293,28 +312,321 @@ TEST (a_CSR3_form_test, ALL) {
  *
  */
 TEST (solver, one_step) {
-	ModelBuilder modelBuilder(1, 4, 1.0f, 20.0f, 50.0f, 2.0f);
+	std::ostringstream output;
 
-	CSR3Matrix *h = modelBuilder.getHInCSR3();
-	CSR3Matrix *a = modelBuilder.getAInCSR3();
+	ModelBuilder modelBuilder(1, 4, 1.0f, 20.0f, 50.0f, 2.0f);
+	RndNumProviderImpl rndNumProvider(345777, 1);
 
 	//the ground state
-	COMPLEX_TYPE step1State[4] = { { 1.0f, 0.0f } };
+	COMPLEX_TYPE initialState[4] = { { 1.0f, 0.0f } };
 	//the previous step vector
-	COMPLEX_TYPE step2State[4];
+	COMPLEX_TYPE resultState[4];
 
-	Solver solver((MKL_INT) 3);
-	solver.solve(h->values, h->rowIndex, h->columns, a->values, a->rowIndex,
-			a->columns, step1State, step2State);
+	Solver solver((MKL_INT) 4, 0.1, 1, modelBuilder, rndNumProvider);
+	solver.solve(output, initialState, resultState);
 
-	Matcher<COMPLEX_TYPE> matchers[] = { ComplexNumberEquals(
-	COMPLEX_TYPE { 1, 0 }), ComplexNumberEquals(COMPLEX_TYPE { 01, 0 }),
-			ComplexNumberEquals(COMPLEX_TYPE { 0, 0 }), ComplexNumberEquals(
-			COMPLEX_TYPE { 0, 0 }) };
+	Matcher<COMPLEX_TYPE> matchers[] = { ComplexEq8digits(
+	COMPLEX_TYPE { 0.4901174757, -0.006032898977 }), ComplexEq8digits(
+	COMPLEX_TYPE { 0.5054537399, -0.3056139613 }), ComplexEq8digits(
+	COMPLEX_TYPE { -0.5385949942, 0.3457525846 }), ComplexEq8digits(
+	COMPLEX_TYPE { -0.03175209988, 0.01508224744 }) };
 
 	std::vector<COMPLEX_TYPE> cs(4);
-		cs.assign(step2State, step2State + 4);
-	ASSERT_THAT(cs, ElementsAreArray(matchers));
+	cs.assign(resultState, resultState + 4);
+	ASSERT_THAT(cs, ElementsAreArray(matchers))/*<< output.str()*/;
+}
+
+/**
+ *	nMax = 1
+ *	maxIndex = 3 (the basis size = 4)
+ *
+ *	timeStep = 0.1
+ *	iMax = 10 (total steps)
+ *	Rand_seed = 345777
+ *
+ *	KAPPA = 1.0f;
+ *	DELTA_OMEGA = 20.0f;
+ *	G = 50.0f;
+ *	LATIN_E = 2.0f;
+ *
+ */
+TEST (solver, ten_steps_to_check_norm) {
+	std::ostringstream output;
+
+	ModelBuilder modelBuilder(1, 4, 1.0f, 20.0f, 50.0f, 2.0f);
+	RndNumProviderImpl rndNumProvider(345777, 1);
+
+	//the ground state
+	COMPLEX_TYPE initialState[4] = { { 1.0f, 0.0f } };
+	//the previous step vector
+	COMPLEX_TYPE resultState[4];
+
+	Solver solver((MKL_INT) 4, 0.1, 10, modelBuilder, rndNumProvider);
+	solver.solve(output, initialState, resultState);
+
+	Matcher<COMPLEX_TYPE> matchers[] = { ComplexEq8digits(
+	COMPLEX_TYPE { 0.01425062492, 0.0142343055 }), ComplexEq8digits(
+	COMPLEX_TYPE { 0.5012350831, 0.4978320441 }), ComplexEq8digits(
+	COMPLEX_TYPE { -0.4958687013, -0.5024254191 }), ComplexEq8digits(
+	COMPLEX_TYPE { -0.03275475156, -0.03363044936 }) };
+
+	std::vector<COMPLEX_TYPE> cs(4);
+	cs.assign(resultState, resultState + 4);
+	ASSERT_THAT(cs, ElementsAreArray(matchers))/*<< output.str()*/;
+}
+
+/**
+ *	nMax = 1
+ *	maxIndex = 3 (the basis size = 4)
+ *
+ *	timeStep = 0.001
+ *	iMax = 1000 (total steps)
+ *	Rand_seed = 345777
+ *
+ *	KAPPA = 1.0f;
+ *	DELTA_OMEGA = 20.0f;
+ *	G = 50.0f;
+ *	LATIN_E = 2.0f;
+ *
+ */
+TEST (solver, thousand_steps) {
+	std::ostringstream output;
+
+	ModelBuilder modelBuilder(1, 4, 1.0f, 20.0f, 50.0f, 2.0f);
+	RndNumProviderImpl rndNumProvider(345777, 1);
+
+	//the ground state
+	COMPLEX_TYPE initialState[4] = { { 1.0f, 0.0f } };
+	//the previous step vector
+	COMPLEX_TYPE resultState[4];
+
+	Solver solver((MKL_INT) 4, 0.001, 1000, modelBuilder, rndNumProvider);
+	solver.solve(output, initialState, resultState);
+
+	Matcher<COMPLEX_TYPE> matchers[] = { ComplexEq8digits(
+	COMPLEX_TYPE { 0.9979644298, 0.03915245248 }), ComplexEq8digits(
+	COMPLEX_TYPE { -0.03792430273, 0.02450283386 }), ComplexEq8digits(
+	COMPLEX_TYPE { -0.01880338262, 0.01147822274 }), ComplexEq8digits(
+	COMPLEX_TYPE { -0.003101962822, 0.0007083183807 }) };
+
+	std::vector<COMPLEX_TYPE> cs(4);
+	cs.assign(resultState, resultState + 4);
+	ASSERT_THAT(cs, ElementsAreArray(matchers))/*<< output.str()*/;
+}
+
+/**
+ *	nMax = 3
+ *	maxIndex = 7 (the basis size = 8)
+ *
+ *	timeStep = 0.001
+ *	iMax = 1000 (total steps)
+ *	Rand_seed = 345777
+ *
+ *	KAPPA = 1.0f;
+ *	DELTA_OMEGA = 20.0f;
+ *	G = 50.0f;
+ *	LATIN_E = 2.0f;
+ *
+ */
+TEST (solver, thousand_steps_nontrivail_basis) {
+	std::ostringstream output;
+
+	ModelBuilder modelBuilder(3, 8, 1.0f, 20.0f, 50.0f, 2.0f);
+	RndNumProviderImpl rndNumProvider(345777, 1);
+
+	//the ground state
+	COMPLEX_TYPE initialState[8] = { { 1.0f, 0.0f } };
+	//the previous step vector
+	COMPLEX_TYPE resultState[8];
+
+	Solver solver((MKL_INT) 8, 0.001, 1000, modelBuilder, rndNumProvider);
+	solver.solve(output, initialState, resultState);
+
+	Matcher<COMPLEX_TYPE> matchers[] = { ComplexEq8digits(
+	COMPLEX_TYPE { 0.9975142689, 0.03872295453 }), ComplexEq8digits(
+	COMPLEX_TYPE { -0.04764714178, 0.008266152728 }), ComplexEq8digits(
+	COMPLEX_TYPE { -0.03145140378, -0.002311774974 }), ComplexEq8digits(
+	COMPLEX_TYPE { 0.00470079133, -0.00369308688 }), ComplexEq8digits(
+	COMPLEX_TYPE { 0.004061784976, -0.00454321962 }), ComplexEq8digits(
+	COMPLEX_TYPE { 0.002552507868, -0.004815132629 }), ComplexEq8digits(
+	COMPLEX_TYPE { 0.00250058722, -0.004882949271 }), ComplexEq8digits(
+	COMPLEX_TYPE { 0.00008202311951, -0.0001504026246 }) };
+
+	std::vector<COMPLEX_TYPE> cs(8);
+	cs.assign(resultState, resultState + 8);
+	ASSERT_THAT(cs, ElementsAreArray(matchers))/*<< output.str()*/;
+}
+
+/**
+ *	nMax = 1
+ *	maxIndex = 3 (the basis size = 4)
+ *
+ *	timeStep = 0.1
+ *	iMax = 1 (total steps)
+ *	Rand_seed = 345777
+ *	samples = 1
+ *
+ *	KAPPA = 1.0f;
+ *	DELTA_OMEGA = 20.0f;
+ *	G = 50.0f;
+ *	LATIN_E = 2.0f;
+ *
+ */
+TEST (simulator, one_sample) {
+	std::ostringstream output;
+
+	ModelBuilder modelBuilder(1, 4, 1.0f, 20.0f, 50.0f, 2.0f);
+	RndNumProviderImpl rndNumProvider(345777, 1);
+	Solver solver((MKL_INT) 4, 0.1, 1, modelBuilder, rndNumProvider);
+	MonteCarloSimulator monteCarloSimulator(4, 1, solver);
+
+	SimulationResult *result = monteCarloSimulator.simulate(output);
+	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
+
+	ASSERT_THAT(photonNumber.mean, FloatEq8digits(0.4108650876))/*<< output.str()*/;
+	ASSERT_THAT(photonNumber.standardDeviation, FloatEq8digits(0.0))/*<< output.str()*/;
+
+	delete result;
+}
+
+/**
+ *	nMax = 1
+ *	maxIndex = 3 (the basis size = 4)
+ *
+ *	timeStep = 0.001
+ *	iMax = 1000 (total steps)
+ *	Rand_seed = 345777
+ *	samples = 1
+ *
+ *	KAPPA = 1.0f;
+ *	DELTA_OMEGA = 20.0f;
+ *	G = 50.0f;
+ *	LATIN_E = 2.0f;
+ *
+ */
+TEST (simulator, one_sample_thousand_steps) {
+	std::ostringstream output;
+
+	ModelBuilder modelBuilder(1, 4, 1.0f, 20.0f, 50.0f, 2.0f);
+	RndNumProviderImpl rndNumProvider(345777, 1);
+	Solver solver((MKL_INT) 4, 0.001, 1000, modelBuilder, rndNumProvider);
+	MonteCarloSimulator monteCarloSimulator(4, 1, solver);
+
+	SimulationResult *result = monteCarloSimulator.simulate(output);
+	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
+
+	//NDSolve uses less accuracy digits, increasing them solves the difference problem
+	ASSERT_THAT(photonNumber.mean, FloatEqNdigits(0.0004954357997,4))/*<< output.str()*/;
+	ASSERT_THAT(photonNumber.standardDeviation, FloatEq8digits(0.0))/*<< output.str()*/;
+
+	delete result;
+}
+
+/**
+ *	nMax = 3
+ *	maxIndex = 7 (the basis size = 8)
+ *
+ *	timeStep = 0.001
+ *	iMax = 1000 (total steps)
+ *	Rand_seed = 345777
+ *	samples = 1
+ *
+ *	KAPPA = 1.0f;
+ *	DELTA_OMEGA = 20.0f;
+ *	G = 50.0f;
+ *	LATIN_E = 2.0f;
+ *
+ */
+TEST (simulator, one_sample_thousand_steps_larger_basis) {
+	std::ostringstream output;
+
+	MKL_INT nMax = 3, basisSize = 8, maxSteps = 1000, randSeed = 345777,
+			nSamples = 1;
+	FLOAT_TYPE timeStep = 0.001, kappa = 1.0, deltaOmega = 20.0, g = 50.0,
+			latinE = 2.0;
+
+	ModelBuilder modelBuilder(nMax, basisSize, kappa, deltaOmega, g, latinE);
+	RndNumProviderImpl rndNumProvider(randSeed, 1);
+	Solver solver(basisSize, timeStep, maxSteps, modelBuilder, rndNumProvider);
+	MonteCarloSimulator monteCarloSimulator(basisSize, nSamples, solver);
+
+	SimulationResult *result = monteCarloSimulator.simulate(output);
+	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
+
+	ASSERT_THAT(photonNumber.mean, FloatEq8digits(0.00125432735))/*<< output.str()*/;
+	ASSERT_THAT(photonNumber.standardDeviation, FloatEq8digits(0.0))/*<< output.str()*/;
+
+	delete result;
+}
+
+/**
+ *	nMax = 1
+ *	maxIndex = 3 (the basis size = 4)
+ *
+ *	timeStep = 0.001
+ *	iMax = 1000 (total steps)
+ *	Rand_seed = 345777
+ *	samples = 100
+ *
+ *	KAPPA = 1.0f;
+ *	DELTA_OMEGA = 20.0f;
+ *	G = 50.0f;
+ *	LATIN_E = 2.0f;
+ *
+ */
+TEST (simulator, hundred_samples) {
+	std::ostringstream output;
+
+	ModelBuilder modelBuilder(1, 4, 1.0f, 20.0f, 50.0f, 2.0f);
+	RndNumProviderImpl rndNumProvider(345777, 1);
+	Solver solver((MKL_INT) 4, 0.001, 1000, modelBuilder, rndNumProvider);
+	MonteCarloSimulator monteCarloSimulator(4, 100, solver);
+
+	SimulationResult *result = monteCarloSimulator.simulate(output);
+	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
+
+	//comparing with NDSolve - its accuracy goal is not enough for timeStep 1/10000
+	ASSERT_THAT(photonNumber.mean, FloatEqNdigits(0.0004954357997,4))/*<< output.str()*/;
+	ASSERT_THAT(photonNumber.standardDeviation, FloatEqNdigits(0.0, 4))/*<< output.str()*/;
+
+	delete result;
+}
+
+/**
+ *	nMax = 3
+ *	maxIndex = 7 (the basis size = 8)
+ *
+ *	timeStep = 0.001
+ *	iMax = 10000 (total steps)
+ *	Rand_seed = 345777
+ *	samples = 100
+ *
+ *	KAPPA = 1.0f;
+ *	DELTA_OMEGA = 20.0f;
+ *	G = 50.0f;
+ *	LATIN_E = 2.0f;
+ *
+ */
+TEST (simulator, integral) {
+	std::ostringstream output;
+
+	MKL_INT nMax = 3, basisSize = 8, maxSteps = 10000, randSeed = 345777,
+			nSamples = 100;
+	FLOAT_TYPE timeStep = 0.001, kappa = 1.0, deltaOmega = 20.0, g = 50.0,
+			latinE = 2.0;
+
+	ModelBuilder modelBuilder(nMax, basisSize, kappa, deltaOmega, g, latinE);
+	RndNumProviderImpl rndNumProvider(randSeed, 1);
+	Solver solver(basisSize, timeStep, maxSteps, modelBuilder, rndNumProvider);
+	MonteCarloSimulator monteCarloSimulator(basisSize, nSamples, solver);
+
+	SimulationResult *result = monteCarloSimulator.simulate(output);
+	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
+
+	ASSERT_THAT(photonNumber.mean, FloatEqNdigits(0.0004954750475, 4))/*<< output.str()*/;
+	ASSERT_THAT(photonNumber.standardDeviation, FloatEqNdigits(0.0, 4))/*<< output.str()*/;
+
+	delete result;
 }
 
 int main(int argc, char **argv) {
