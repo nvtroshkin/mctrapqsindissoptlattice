@@ -14,7 +14,7 @@
 #include <ModelBuilder.h>
 #include <RndNumProvider.h>
 
-#ifdef DEBUG_MODE
+#if defined(DEBUG_MODE) || defined(DEBUG_JUMPS)
 #include <utilities.h>
 #endif
 
@@ -120,22 +120,18 @@ void Solver::solve(std::ostream &consoleStream,
 		complex_cblas_dotc_sub(basisSize, curState, NO_INC, curState, NO_INC,
 				&norm2);
 		if (svNormThreshold > norm2.real) {
-			//then a jump is occurred between t(i) and t(i+1)
-			//let's suppose it was at time t(i)
+#ifdef DEBUG_JUMPS
+			consoleStream << "jump at step: " << i << endl;
+			consoleStream << "vector norm: " << norm2.real << endl;
+			print(consoleStream, "vector: ", curState, basisSize);
+#endif
 
-			//calculate the state vector after the jump
-			//store it at t(i+1)
-			complex_mkl_cspblas_csrgemv("n", &basisSize, aCSR3->values,
-					aCSR3->rowIndex, aCSR3->columns, prevState, curState);
-			//calculate new norm
-			complex_cblas_dotc_sub(basisSize, curState, NO_INC, curState,
-					NO_INC, &norm2);
+			makeJump(consoleStream, svNormThreshold, prevState, curState);
 
-			//update the random time
-			svNormThreshold = rndNumBuff[rndNumIndex++];
-
-			//normalize vector
-			normalizeVector(curState);
+#ifdef DEBUG_JUMPS
+			print(consoleStream, "vector after jump and normalization: ",
+					curState, basisSize);
+#endif
 		}
 
 		//update indices
@@ -229,6 +225,10 @@ inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream,
 }
 
 inline void Solver::normalizeVector(COMPLEX_TYPE *stateVector) {
+	//calculate new norm
+	complex_cblas_dotc_sub(basisSize, stateVector, NO_INC, stateVector, NO_INC,
+			&norm2);
+
 	vSqrt((MKL_INT) 1, &(norm2.real), &(normReversed.real));
 	normReversed.real = 1.0 / normReversed.real;
 
@@ -237,5 +237,23 @@ inline void Solver::normalizeVector(COMPLEX_TYPE *stateVector) {
 			tempVector, NO_INC);
 	//write back
 	complex_cblas_copy(basisSize, tempVector, NO_INC, stateVector, NO_INC);
+}
+
+inline void Solver::makeJump(std::ostream &consoleStream,
+FLOAT_TYPE &svNormThreshold, COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
+	//then a jump is occurred between t(i) and t(i+1)
+	//let's suppose it was at time t(i)
+
+	//calculate the state vector after the jump
+	//store it at t(i+1)
+	complex_mkl_cspblas_csrgemv("n", &basisSize, aCSR3->values, aCSR3->rowIndex,
+			aCSR3->columns, prevState, curState);
+
+	//normalize vector - may not leave it unnormalized because the norm
+	//should fall from one during the unitary phase
+	normalizeVector(curState);
+
+	//update the random time
+	svNormThreshold = rndNumBuff[rndNumIndex++];
 }
 

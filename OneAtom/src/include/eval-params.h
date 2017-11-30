@@ -12,6 +12,7 @@
 
 //uncomment for extra output
 //#define DEBUG_MODE
+//#define DEBUG_JUMPS
 
 //the dressed basis
 static const int MAX_PHOTON_NUMBER = 1;

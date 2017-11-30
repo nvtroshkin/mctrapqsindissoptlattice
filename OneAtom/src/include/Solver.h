@@ -51,8 +51,6 @@ class Solver {
 			const COMPLEX_TYPE *HCSR3Values, const int *HCSR3RowIndex,
 			const int *HCSR3Columns);
 
-	void normalizeVector(COMPLEX_TYPE *stateVector);
-
 public:
 	Solver(MKL_INT basisSize, FLOAT_TYPE timeStep, int timeStepsNumber,
 			ModelBuilder &modelBuilder, RndNumProvider &rndNumProvider);
@@ -63,6 +61,11 @@ public:
 	 */
 	void solve(std::ostream &consoleStream, const COMPLEX_TYPE * initialState,
 	COMPLEX_TYPE * const resultState);
+
+	void normalizeVector(COMPLEX_TYPE *stateVector);
+
+	void makeJump(std::ostream &consoleStream, FLOAT_TYPE &svNormThreshold,
+	COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState);
 };
 
 #endif /* SRC_INCLUDE_SOLVER_H_ */

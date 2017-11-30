@@ -63,11 +63,11 @@ ImpreciseValue &SimulationResult::getMeanPhotonNumber() const {
 			FLOAT_TYPE sum2 = cblas_asum(samplesNumber, temp, NO_INC);
 
 			//(a^2 + b^2 - 2 a b)
-			FLOAT_TYPE sum = abs(
+			FLOAT_TYPE sum = std::abs(
 					sum1 + samplesNumber * meanPhotonsNumber * meanPhotonsNumber
 							- sum2);
 
-			standardDeviation = sqrtf(
+			standardDeviation = std::sqrt(
 					sum / (samplesNumber * (samplesNumber - 1)));
 		}
 

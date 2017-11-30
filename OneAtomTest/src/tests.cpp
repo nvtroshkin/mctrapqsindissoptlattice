@@ -10,6 +10,7 @@
 #include <ImpreciseValue.h>
 #include <MonteCarloSimulator.h>
 #include <RndNumProviderImpl.h>
+#include <utilities.h>
 
 using namespace testing;
 
@@ -458,6 +459,117 @@ TEST (solver, thousand_steps_nontrivail_basis) {
 }
 
 /**
+ *	nMax = 3
+ *	maxIndex = 7 (the basis size = 8)
+ *
+ *	KAPPA = 1.0f;
+ *	DELTA_OMEGA = 20.0f;
+ *	G = 50.0f;
+ *	LATIN_E = 2.0f;
+ *
+ *	Random numbers are such to cause several jumps
+ *	etta = 0.99169, 0.964054, 0.667811
+ */
+TEST (solver, make_jump) {
+	std::ostringstream output;
+
+	MKL_INT nMax = 3, basisSize = 8, maxSteps = 10000;
+	FLOAT_TYPE timeStep = 0.001, kappa = 1.0, deltaOmega = 20.0, g = 50.0,
+			latinE = 2.0;
+
+	ModelBuilder modelBuilder(nMax, basisSize, kappa, deltaOmega, g, latinE);
+
+	class MockRndNumProvider: public RndNumProvider {
+	public:
+		void initBuffer(int streamId, FLOAT_TYPE *buffer, int bufferSize)
+				override {
+			buffer[0] = 0.99169;
+			buffer[1] = 0.964054;
+			buffer[2] = 0.667811;
+		}
+	} rndNumProviderMock;
+
+	//the ground state
+	COMPLEX_TYPE initialState[basisSize] = { { 1.0f, 1.0f }, { 2.0f, 2.0f }, {
+			3.0f, 3.0f }, { 4.0f, 4.0f }, { 5.0f, 5.0f }, { 6.0f, 6.0f }, {
+			7.0f, 7.0f }, { 8.0f, 8.0f } };
+	//the previous step vector
+	COMPLEX_TYPE resultState[basisSize];
+	//storage for the next random number
+	FLOAT_TYPE nextRandom;
+
+	Solver solver(basisSize, timeStep, maxSteps, modelBuilder,
+			rndNumProviderMock);
+	solver.makeJump(output, nextRandom, initialState, resultState);
+
+//	Matcher<COMPLEX_TYPE> matchers[] = { ComplexEq8digits(
+//	COMPLEX_TYPE { 3, 3 }), ComplexEq8digits(
+//	COMPLEX_TYPE { 4, 4 }), ComplexEq8digits(
+//	COMPLEX_TYPE { 7.071067812, 7.071067812 }), ComplexEq8digits(
+//	COMPLEX_TYPE { 8.485281374, 8.485281374 }), ComplexEq8digits(
+//	COMPLEX_TYPE { 12.12435565, 12.12435565 }), ComplexEq8digits(
+//	COMPLEX_TYPE { 13.85640646, 13.85640646 }), ComplexEq8digits(
+//	COMPLEX_TYPE { 0.0, 0.0 }), ComplexEq8digits(
+//	COMPLEX_TYPE { 0.0, 0.0 }) };
+
+//normalized
+	Matcher<COMPLEX_TYPE> matchers[] = { ComplexEq8digits(
+	COMPLEX_TYPE { 0.09622504486493763, 0.09622504486493763 }),
+			ComplexEq8digits(
+			COMPLEX_TYPE { 0.1283000598, 0.1283000598 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.2268046058, 0.2268046058 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.272165527, 0.272165527 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.3888888889, 0.3888888889 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.4444444444, 0.4444444444 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.0, 0.0 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.0, 0.0 }) };
+
+	std::vector<COMPLEX_TYPE> cs(basisSize);
+	cs.assign(resultState, resultState + basisSize);
+	ASSERT_THAT(cs, ElementsAreArray(matchers))/*<< output.str()*/;
+	ASSERT_THAT(nextRandom, FloatEq8digits(0.99169)); //the first number of the sequence
+}
+
+/**
+ *	nMax = 3
+ *	maxIndex = 7 (the basis size = 8)
+ */
+TEST (solver, normalize) {
+	std::ostringstream output;
+
+	MKL_INT nMax = 3, basisSize = 8, maxSteps = 1000;
+	FLOAT_TYPE timeStep = 0.001, kappa = 1.0, deltaOmega = 20.0, g = 50.0,
+			latinE = 2.0;
+
+	ModelBuilder modelBuilder(nMax, basisSize, kappa, deltaOmega, g, latinE);
+	RndNumProviderImpl rndNumProvider(345777, 1);
+
+	//the ground state
+	COMPLEX_TYPE initialState[basisSize] = { { 1.0f, 1.0f }, { 2.0f, 2.0f }, {
+			3.0f, 3.0f }, { 4.0f, 4.0f }, { 5.0f, 5.0f }, { 6.0f, 6.0f }, {
+			7.0f, 7.0f }, { 8.0f, 8.0f } };
+
+	Solver solver(basisSize, timeStep, maxSteps, modelBuilder, rndNumProvider);
+	solver.normalizeVector(initialState);
+
+//normalized
+	Matcher<COMPLEX_TYPE> matchers[] = { ComplexEq8digits(
+	COMPLEX_TYPE { 0.04950737715, 0.04950737715 }),
+			ComplexEq8digits(
+			COMPLEX_TYPE { 0.09901475429766744, 0.09901475429766744 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.14852213144650114, 0.14852213144650114 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.1980295086, 0.1980295086 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.2475368857, 0.2475368857 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.2970442629, 0.2970442629 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.34655164004183603, 0.34655164004183603 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.3960590172, 0.3960590172 }) };
+
+	std::vector<COMPLEX_TYPE> cs(basisSize);
+	cs.assign(initialState, initialState + basisSize);
+	ASSERT_THAT(cs, ElementsAreArray(matchers))/*<< output.str()*/;
+}
+
+/**
  *	nMax = 1
  *	maxIndex = 3 (the basis size = 4)
  *
@@ -484,7 +596,7 @@ TEST (simulator, one_sample) {
 	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
 
 	ASSERT_THAT(photonNumber.mean, FloatEq8digits(0.4108650876))/*<< output.str()*/;
-	ASSERT_THAT(photonNumber.standardDeviation, FloatEq8digits(0.0))/*<< output.str()*/;
+	ASSERT_THAT(photonNumber.standardDeviation, FloatEq8digits(0.0));
 
 	delete result;
 }
@@ -517,7 +629,7 @@ TEST (simulator, one_sample_thousand_steps) {
 
 	//NDSolve uses less accuracy digits, increasing them solves the difference problem
 	ASSERT_THAT(photonNumber.mean, FloatEqNdigits(0.0004954357997,4))/*<< output.str()*/;
-	ASSERT_THAT(photonNumber.standardDeviation, FloatEq8digits(0.0))/*<< output.str()*/;
+	ASSERT_THAT(photonNumber.standardDeviation, FloatEq8digits(0.0));
 
 	delete result;
 }
@@ -554,7 +666,7 @@ TEST (simulator, one_sample_thousand_steps_larger_basis) {
 	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
 
 	ASSERT_THAT(photonNumber.mean, FloatEq8digits(0.00125432735))/*<< output.str()*/;
-	ASSERT_THAT(photonNumber.standardDeviation, FloatEq8digits(0.0))/*<< output.str()*/;
+	ASSERT_THAT(photonNumber.standardDeviation, FloatEq8digits(0.0));
 
 	delete result;
 }
@@ -587,7 +699,7 @@ TEST (simulator, hundred_samples) {
 
 	//comparing with NDSolve - its accuracy goal is not enough for timeStep 1/10000
 	ASSERT_THAT(photonNumber.mean, FloatEqNdigits(0.0004954357997,4))/*<< output.str()*/;
-	ASSERT_THAT(photonNumber.standardDeviation, FloatEqNdigits(0.0, 4))/*<< output.str()*/;
+	ASSERT_THAT(photonNumber.standardDeviation, FloatEqNdigits(8.27328e-13, 6));
 
 	delete result;
 }
@@ -607,7 +719,7 @@ TEST (simulator, hundred_samples) {
  *	LATIN_E = 2.0f;
  *
  */
-TEST (simulator, integral) {
+TEST (simulator, total) {
 	std::ostringstream output;
 
 	MKL_INT nMax = 3, basisSize = 8, maxSteps = 10000, randSeed = 345777,
@@ -623,8 +735,15 @@ TEST (simulator, integral) {
 	SimulationResult *result = monteCarloSimulator.simulate(output);
 	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
 
-	ASSERT_THAT(photonNumber.mean, FloatEqNdigits(0.0004954750475, 4))/*<< output.str()*/;
-	ASSERT_THAT(photonNumber.standardDeviation, FloatEqNdigits(0.0, 4))/*<< output.str()*/;
+	output.precision(10);
+	output << "mean photon number: " << photonNumber.mean << std::endl;
+	output << "standard deviation: " << photonNumber.standardDeviation << std::endl;
+
+	//in a jump occurs a significant loss of precision, because
+	// 1) the method of detection of the time of a jump is rough (just using a previous step)
+	// 2) after a jump a state vector gets 1/100 of its previous norm with 2 significant digits cut
+	ASSERT_THAT(photonNumber.mean, FloatEqNdigits(0.001441730225, 8))/*<< output.str()*/;
+	ASSERT_THAT(photonNumber.standardDeviation, FloatEqNdigits(0.001053123598, 8));
 
 	delete result;
 }
