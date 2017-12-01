@@ -14,6 +14,8 @@
 //#define DEBUG_MODE
 //#define DEBUG_JUMPS
 
+#define THREADS_NUM 4
+
 //the dressed basis
 static const int MAX_PHOTON_NUMBER = 1;
 static const int DRESSED_BASIS_SIZE = (2 * (MAX_PHOTON_NUMBER + 1));

@@ -5,31 +5,28 @@
  *      Author: fake_sci
  */
 
-#include <mkl.h>
-#include <scalable_allocator.h>
-#include <iostream>
-
 #include <mkl-constants.h>
-#include <precision-definition.h>
-#include <ModelBuilder.h>
-#include <RndNumProvider.h>
+#include <scalable_allocator.h>
+//#include <fstream>
+
+#include "precision-definition.h"
+#include <Solver.h>
+#include <eval-params.h>
 
 #if defined(DEBUG_MODE) || defined(DEBUG_JUMPS)
 #include <utilities.h>
 #endif
 
-#include <Solver.h>
-
 using std::endl;
 
-Solver::Solver(MKL_INT basisSize, FLOAT_TYPE timeStep, int timeStepsNumber,
+Solver::Solver(int id, MKL_INT basisSize, FLOAT_TYPE timeStep, int timeStepsNumber,
 		ModelBuilder &modelBuilder, RndNumProvider &rndNumProvider) :
 		complexTHalfStep( { 0.5 * timeStep, 0.0 }), complexTStep( { timeStep,
 				0.0 }), complexTSixthStep( { timeStep / 6.0, 0.0 }), complexTwo(
 				{ 2.0, 0.0 }), complexOne( { 1.0, 0.0 }), basisSize(basisSize), timeStepsNumber(
-				timeStepsNumber), rndNumIndex(0), hCSR3(
+				timeStepsNumber), hCSR3(
 				modelBuilder.getHInCSR3()), aCSR3(modelBuilder.getAInCSR3()), aPlusCSR3(
-				modelBuilder.getAPlusInCSR3()), rndNumProvider(rndNumProvider) {
+				modelBuilder.getAPlusInCSR3()), rndNumProvider(rndNumProvider), rndNumIndex(0) {
 	zeroVector = new COMPLEX_TYPE[basisSize];
 	for (int i = 0; i < basisSize; i++) {
 		zeroVector[i].real = 0.0;
@@ -53,18 +50,18 @@ Solver::Solver(MKL_INT basisSize, FLOAT_TYPE timeStep, int timeStepsNumber,
 	//		rndNumBuff[i]=0.0;
 	//	}
 
-	rndNumProvider.initBuffer(0, rndNumBuff, RND_NUM_BUFF_SIZE);
+	rndNumProvider.initBuffer(id, rndNumBuff, RND_NUM_BUFF_SIZE);
 
 	//save the realization to a file
-	//	ofstream myfile;
-	//	myfile.open("rnd-numbers.txt");
-	//	if (!myfile.is_open()) {
-	//		cout << "Can't open file!" << endl;
-	//	}
-	//	for (int i = 0; i < RND_NUM_BUFF_SIZE; i++) {
-	//		myfile << rndNumBuff[i] << ", ";
-	//	}
-	//	myfile.close();
+//	std::ofstream myfile;
+//	myfile.open("rnd-numbers.txt");
+//	if (!myfile.is_open()) {
+//		std::cout << "Can't open file!" << endl;
+//	}
+//	for (int i = 0; i < RND_NUM_BUFF_SIZE; i++) {
+//		myfile << rndNumBuff[i] << ", ";
+//	}
+//	myfile.close();
 }
 
 Solver::~Solver() {

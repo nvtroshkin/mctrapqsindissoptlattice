@@ -32,10 +32,6 @@ class Solver {
 	//norms
 	COMPLEX_TYPE norm2 { 1.0, 0.0 }, normReversed { 1.0, 0.0 };
 
-	//random numbers
-	int rndNumIndex;	//indicates where we are in the buffer
-	FLOAT_TYPE *rndNumBuff;
-
 	//the model
 	const CSR3Matrix * const hCSR3;
 	const CSR3Matrix * const aCSR3;
@@ -47,12 +43,16 @@ class Solver {
 	COMPLEX_TYPE *zeroVector;COMPLEX_TYPE *k1, *k2, *k3, *k4, *tempVector,
 			*prevState, *curState;
 
+	//random numbers
+	int rndNumIndex;	//indicates where we are in the buffer
+	FLOAT_TYPE *rndNumBuff;
+
 	void make4thOrderRungeKuttaStep(std::ostream &consoleStream,
 			const COMPLEX_TYPE *HCSR3Values, const int *HCSR3RowIndex,
 			const int *HCSR3Columns);
 
 public:
-	Solver(MKL_INT basisSize, FLOAT_TYPE timeStep, int timeStepsNumber,
+	Solver(int id, MKL_INT basisSize, FLOAT_TYPE timeStep, int timeStepsNumber,
 			ModelBuilder &modelBuilder, RndNumProvider &rndNumProvider);
 	~Solver();
 

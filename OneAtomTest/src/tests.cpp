@@ -11,6 +11,7 @@
 #include <MonteCarloSimulator.h>
 #include <RndNumProviderImpl.h>
 #include <utilities.h>
+#include <eval-params.h>
 
 using namespace testing;
 
@@ -25,18 +26,48 @@ MATCHER_P (ComplexNumberEquals, a, ""){
 return a.real == arg.real && a.imag == arg.imag;
 }
 
+int getDecimalExponent(FLOAT_TYPE f) {
+	int exp = 0;
+	if (f > 1.0) {
+		while (f >= 10) {
+			f /= 10;
+			exp++;
+		}
+	} else if (f < 1.0) {
+		while (f < 1.0) {
+			f *= 10;
+			exp--;
+		}
+	}
+
+	return exp;
+}
+
+bool areEqualToNDigits(FLOAT_TYPE a, FLOAT_TYPE b, int nDigits) {
+	if (a == b) {
+		return true;
+	}
+
+	FLOAT_TYPE diff = std::abs(a - b);
+	FLOAT_TYPE max = std::max(std::abs(a), std::abs(b));
+
+	int diffExp = getDecimalExponent(diff), maxExp = getDecimalExponent(max);
+
+	return diffExp <= maxExp && std::abs(maxExp - diffExp) >= nDigits;
+}
+
 MATCHER_P (ComplexEq8digits, a, ""){
 //	*result_listener << "where the remainder is " << (arg % n);
-return (a.real == arg.real || std::abs(a.real - arg.real)/std::max(a.real, arg.real)< 10e-9)
-&& (a.imag == arg.imag || std::abs(a.imag - arg.imag)/std::max(a.imag, arg.imag)< 10e-9);
+return areEqualToNDigits(a.real, arg.real, 8)
+&& areEqualToNDigits(a.imag, arg.imag, 8);
 }
 
 MATCHER_P (FloatEq8digits, a, ""){
-return (a == arg || std::abs(a - arg)/std::max(a, arg)< 10e-9);
+return areEqualToNDigits(a, arg, 8);
 }
 
 MATCHER_P2 (FloatEqNdigits, a, n, ""){
-return (a == arg || std::abs(a - arg)/std::max(a, arg)< pow(10,-n));
+return areEqualToNDigits(a, arg, n);
 }
 
 ::std::ostream& operator<<(::std::ostream& os, const COMPLEX_TYPE& c) {
@@ -323,7 +354,7 @@ TEST (solver, one_step) {
 	//the previous step vector
 	COMPLEX_TYPE resultState[4];
 
-	Solver solver((MKL_INT) 4, 0.1, 1, modelBuilder, rndNumProvider);
+	Solver solver(0, (MKL_INT) 4, 0.1, 1, modelBuilder, rndNumProvider);
 	solver.solve(output, initialState, resultState);
 
 	Matcher<COMPLEX_TYPE> matchers[] = { ComplexEq8digits(
@@ -362,7 +393,7 @@ TEST (solver, ten_steps_to_check_norm) {
 	//the previous step vector
 	COMPLEX_TYPE resultState[4];
 
-	Solver solver((MKL_INT) 4, 0.1, 10, modelBuilder, rndNumProvider);
+	Solver solver(0, (MKL_INT) 4, 0.1, 10, modelBuilder, rndNumProvider);
 	solver.solve(output, initialState, resultState);
 
 	Matcher<COMPLEX_TYPE> matchers[] = { ComplexEq8digits(
@@ -401,7 +432,7 @@ TEST (solver, thousand_steps) {
 	//the previous step vector
 	COMPLEX_TYPE resultState[4];
 
-	Solver solver((MKL_INT) 4, 0.001, 1000, modelBuilder, rndNumProvider);
+	Solver solver(0, (MKL_INT) 4, 0.001, 1000, modelBuilder, rndNumProvider);
 	solver.solve(output, initialState, resultState);
 
 	Matcher<COMPLEX_TYPE> matchers[] = { ComplexEq8digits(
@@ -440,7 +471,7 @@ TEST (solver, thousand_steps_nontrivail_basis) {
 	//the previous step vector
 	COMPLEX_TYPE resultState[8];
 
-	Solver solver((MKL_INT) 8, 0.001, 1000, modelBuilder, rndNumProvider);
+	Solver solver(0, (MKL_INT) 8, 0.001, 1000, modelBuilder, rndNumProvider);
 	solver.solve(output, initialState, resultState);
 
 	Matcher<COMPLEX_TYPE> matchers[] = { ComplexEq8digits(
@@ -498,7 +529,7 @@ TEST (solver, make_jump) {
 	//storage for the next random number
 	FLOAT_TYPE nextRandom;
 
-	Solver solver(basisSize, timeStep, maxSteps, modelBuilder,
+	Solver solver(0, basisSize, timeStep, maxSteps, modelBuilder,
 			rndNumProviderMock);
 	solver.makeJump(output, nextRandom, initialState, resultState);
 
@@ -549,19 +580,22 @@ TEST (solver, normalize) {
 			3.0f, 3.0f }, { 4.0f, 4.0f }, { 5.0f, 5.0f }, { 6.0f, 6.0f }, {
 			7.0f, 7.0f }, { 8.0f, 8.0f } };
 
-	Solver solver(basisSize, timeStep, maxSteps, modelBuilder, rndNumProvider);
+	Solver solver(0, basisSize, timeStep, maxSteps, modelBuilder,
+			rndNumProvider);
 	solver.normalizeVector(initialState);
 
 //normalized
 	Matcher<COMPLEX_TYPE> matchers[] = { ComplexEq8digits(
-	COMPLEX_TYPE { 0.04950737715, 0.04950737715 }),
+	COMPLEX_TYPE { 0.04950737715, 0.04950737715 }), ComplexEq8digits(
+	COMPLEX_TYPE { 0.09901475429766744, 0.09901475429766744 }),
 			ComplexEq8digits(
-			COMPLEX_TYPE { 0.09901475429766744, 0.09901475429766744 }), ComplexEq8digits(
-			COMPLEX_TYPE { 0.14852213144650114, 0.14852213144650114 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.14852213144650114, 0.14852213144650114 }),
+			ComplexEq8digits(
 			COMPLEX_TYPE { 0.1980295086, 0.1980295086 }), ComplexEq8digits(
 			COMPLEX_TYPE { 0.2475368857, 0.2475368857 }), ComplexEq8digits(
 			COMPLEX_TYPE { 0.2970442629, 0.2970442629 }), ComplexEq8digits(
-			COMPLEX_TYPE { 0.34655164004183603, 0.34655164004183603 }), ComplexEq8digits(
+			COMPLEX_TYPE { 0.34655164004183603, 0.34655164004183603 }),
+			ComplexEq8digits(
 			COMPLEX_TYPE { 0.3960590172, 0.3960590172 }) };
 
 	std::vector<COMPLEX_TYPE> cs(basisSize);
@@ -584,15 +618,23 @@ TEST (solver, normalize) {
  *	LATIN_E = 2.0f;
  *
  */
-TEST (simulator, one_sample) {
+TEST (simulator, one_sample_without_jumps) {
 	std::ostringstream output;
 
 	ModelBuilder modelBuilder(1, 4, 1.0f, 20.0f, 50.0f, 2.0f);
-	RndNumProviderImpl rndNumProvider(345777, 1);
-	Solver solver((MKL_INT) 4, 0.1, 1, modelBuilder, rndNumProvider);
-	MonteCarloSimulator monteCarloSimulator(4, 1, solver);
+	class MockRndNumProvider: public RndNumProvider {
+	public:
+		void initBuffer(int streamId, FLOAT_TYPE *buffer, int bufferSize)
+				override {
+			for (int var = 0; var < bufferSize; var++) {
+				buffer[var] = 0.0;
+			}
+		}
+	} rndNumProviderMock;
+	MonteCarloSimulator monteCarloSimulator(4, 1, THREADS_NUM, modelBuilder,
+			rndNumProviderMock);
 
-	SimulationResult *result = monteCarloSimulator.simulate(output);
+	SimulationResult *result = monteCarloSimulator.simulate(output, 0.1, 1);
 	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
 
 	ASSERT_THAT(photonNumber.mean, FloatEq8digits(0.4108650876))/*<< output.str()*/;
@@ -616,15 +658,24 @@ TEST (simulator, one_sample) {
  *	LATIN_E = 2.0f;
  *
  */
-TEST (simulator, one_sample_thousand_steps) {
+TEST (simulator, one_sample_thousand_steps_without_jumps) {
 	std::ostringstream output;
 
 	ModelBuilder modelBuilder(1, 4, 1.0f, 20.0f, 50.0f, 2.0f);
-	RndNumProviderImpl rndNumProvider(345777, 1);
-	Solver solver((MKL_INT) 4, 0.001, 1000, modelBuilder, rndNumProvider);
-	MonteCarloSimulator monteCarloSimulator(4, 1, solver);
+	class MockRndNumProvider: public RndNumProvider {
+	public:
+		void initBuffer(int streamId, FLOAT_TYPE *buffer, int bufferSize)
+				override {
+			for (int var = 0; var < bufferSize; var++) {
+				buffer[var] = 0.0;
+			}
+		}
+	} rndNumProviderMock;
+	MonteCarloSimulator monteCarloSimulator(4, 1, THREADS_NUM, modelBuilder,
+			rndNumProviderMock);
 
-	SimulationResult *result = monteCarloSimulator.simulate(output);
+	SimulationResult *result = monteCarloSimulator.simulate(output, 0.001,
+			1000);
 	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
 
 	//NDSolve uses less accuracy digits, increasing them solves the difference problem
@@ -649,20 +700,28 @@ TEST (simulator, one_sample_thousand_steps) {
  *	LATIN_E = 2.0f;
  *
  */
-TEST (simulator, one_sample_thousand_steps_larger_basis) {
+TEST (simulator, one_sample_thousand_steps_larger_basis_wo_jumps) {
 	std::ostringstream output;
 
-	MKL_INT nMax = 3, basisSize = 8, maxSteps = 1000, randSeed = 345777,
-			nSamples = 1;
+	MKL_INT nMax = 3, basisSize = 8, maxSteps = 1000, nSamples = 1;
 	FLOAT_TYPE timeStep = 0.001, kappa = 1.0, deltaOmega = 20.0, g = 50.0,
 			latinE = 2.0;
 
 	ModelBuilder modelBuilder(nMax, basisSize, kappa, deltaOmega, g, latinE);
-	RndNumProviderImpl rndNumProvider(randSeed, 1);
-	Solver solver(basisSize, timeStep, maxSteps, modelBuilder, rndNumProvider);
-	MonteCarloSimulator monteCarloSimulator(basisSize, nSamples, solver);
+	class MockRndNumProvider: public RndNumProvider {
+	public:
+		void initBuffer(int streamId, FLOAT_TYPE *buffer, int bufferSize)
+				override {
+			for (int var = 0; var < bufferSize; var++) {
+				buffer[var] = 0.0;
+			}
+		}
+	} rndNumProviderMock;
+	MonteCarloSimulator monteCarloSimulator(basisSize, nSamples, THREADS_NUM,
+			modelBuilder, rndNumProviderMock);
 
-	SimulationResult *result = monteCarloSimulator.simulate(output);
+	SimulationResult *result = monteCarloSimulator.simulate(output, timeStep,
+			maxSteps);
 	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
 
 	ASSERT_THAT(photonNumber.mean, FloatEq8digits(0.00125432735))/*<< output.str()*/;
@@ -686,15 +745,24 @@ TEST (simulator, one_sample_thousand_steps_larger_basis) {
  *	LATIN_E = 2.0f;
  *
  */
-TEST (simulator, hundred_samples) {
+TEST (simulator, hundred_samples_wo_jumps) {
 	std::ostringstream output;
 
 	ModelBuilder modelBuilder(1, 4, 1.0f, 20.0f, 50.0f, 2.0f);
-	RndNumProviderImpl rndNumProvider(345777, 1);
-	Solver solver((MKL_INT) 4, 0.001, 1000, modelBuilder, rndNumProvider);
-	MonteCarloSimulator monteCarloSimulator(4, 100, solver);
+	class MockRndNumProvider: public RndNumProvider {
+	public:
+		void initBuffer(int streamId, FLOAT_TYPE *buffer, int bufferSize)
+				override {
+			for (int var = 0; var < bufferSize; var++) {
+				buffer[var] = 0.0;
+			}
+		}
+	} rndNumProviderMock;
+	MonteCarloSimulator monteCarloSimulator(4, 100, THREADS_NUM, modelBuilder,
+			rndNumProviderMock);
 
-	SimulationResult *result = monteCarloSimulator.simulate(output);
+	SimulationResult *result = monteCarloSimulator.simulate(output, 0.001,
+			1000);
 	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
 
 	//comparing with NDSolve - its accuracy goal is not enough for timeStep 1/10000
@@ -705,6 +773,7 @@ TEST (simulator, hundred_samples) {
 }
 
 /**
+ *
  *	nMax = 3
  *	maxIndex = 7 (the basis size = 8)
  *
@@ -722,35 +791,37 @@ TEST (simulator, hundred_samples) {
 TEST (simulator, total) {
 	std::ostringstream output;
 
-	MKL_INT nMax = 3, basisSize = 8, maxSteps = 10000, randSeed = 345777,
-			nSamples = 100;
+	MKL_INT nMax = 1, basisSize = 4, maxSteps = 10000, randSeed = 345777,
+			nSamples = 1000;
 	FLOAT_TYPE timeStep = 0.001, kappa = 1.0, deltaOmega = 20.0, g = 50.0,
 			latinE = 2.0;
 
 	ModelBuilder modelBuilder(nMax, basisSize, kappa, deltaOmega, g, latinE);
-	RndNumProviderImpl rndNumProvider(randSeed, 1);
-	Solver solver(basisSize, timeStep, maxSteps, modelBuilder, rndNumProvider);
-	MonteCarloSimulator monteCarloSimulator(basisSize, nSamples, solver);
+	RndNumProviderImpl rndNumProvider(randSeed, THREADS_NUM);
+	MonteCarloSimulator monteCarloSimulator(basisSize, nSamples, THREADS_NUM,
+			modelBuilder, rndNumProvider);
 
-	SimulationResult *result = monteCarloSimulator.simulate(output);
+	SimulationResult *result = monteCarloSimulator.simulate(output, timeStep,
+			maxSteps);
 	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
 
 	output.precision(10);
 	output << "mean photon number: " << photonNumber.mean << std::endl;
-	output << "standard deviation: " << photonNumber.standardDeviation << std::endl;
+	output << "standard deviation: " << photonNumber.standardDeviation
+			<< std::endl;
 
 	//in a jump occurs a significant loss of precision, because
 	// 1) the method of detection of the time of a jump is rough (just using a previous step)
 	// 2) after a jump a state vector gets 1/100 of its previous norm with 2 significant digits cut
-	ASSERT_THAT(photonNumber.mean, FloatEqNdigits(0.001441730225, 8))/*<< output.str()*/;
-	ASSERT_THAT(photonNumber.standardDeviation, FloatEqNdigits(0.001053123598, 8));
+	ASSERT_THAT(photonNumber.mean, FloatEqNdigits(0.0003606683811953829, 2))<<output.str();
+	ASSERT_THAT(photonNumber.standardDeviation,
+			FloatEqNdigits(1.227747317e-05, 8));
 
 	delete result;
 }
 
 int main(int argc, char **argv) {
 	printf("Running main() from gtest_main.cc\n");
-	printf("Work only for n=1\n");
 	testing::InitGoogleTest(&argc, argv);
 	return RUN_ALL_TESTS();
 }

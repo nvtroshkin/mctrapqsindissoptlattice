@@ -3,12 +3,9 @@
  *      Author: fake_sci
  */
 
-#include <iostream>
-#include <precision-definition.h>
-#include <CSR3Matrix.h>
-#include <utilities.h>
-
 #include <ModelBuilder.h>
+#include <utilities.h>
+#include <precision-definition.h>
 
 ModelBuilder::ModelBuilder(int maxPhotonNumber, MKL_INT basisSize,
 		FLOAT_TYPE kappa, FLOAT_TYPE deltaOmega, FLOAT_TYPE g,

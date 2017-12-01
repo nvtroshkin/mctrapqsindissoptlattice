@@ -15,7 +15,7 @@ RndNumProviderImpl::RndNumProviderImpl(int rndSeed, int nStreams) :
 		nStreams(nStreams) {
 	streams = new VSLStreamStatePtr[nStreams];
 	for (int k = 0; k < nStreams; k++) {
-		int status = vslNewStream(&streams[k], VSL_BRNG_MCG31 + k, rndSeed);
+		int status = vslNewStream(&streams[k], VSL_BRNG_MT2203 + k, rndSeed);
 		if (status != VSL_STATUS_OK) {
 			throw "Can't obtain a random numbers thread: " + status;
 		}

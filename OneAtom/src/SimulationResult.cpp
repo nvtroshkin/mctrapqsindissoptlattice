@@ -5,13 +5,11 @@
  *      Author: fake_sci
  */
 
-#include <precision-definition.h>
-#include <ImpreciseValue.h>
-#include <utilities.h>
 #include <mkl-constants.h>
-#include <cmath>
-
 #include <SimulationResult.h>
+#include <utilities.h>
+#include <cmath>
+#include <precision-definition.h>
 
 SimulationResult::SimulationResult(int samplesNumber, int basisSize,
 COMPLEX_TYPE ** const result) :
@@ -20,7 +18,11 @@ COMPLEX_TYPE ** const result) :
 
 SimulationResult::~SimulationResult() {
 	delete photonNumber;
-	delete result;
+
+	for (int i = 0; i < samplesNumber; i++) {
+		delete[] result[i];
+	}
+	delete[] result;
 }
 
 ImpreciseValue &SimulationResult::getMeanPhotonNumber() const {

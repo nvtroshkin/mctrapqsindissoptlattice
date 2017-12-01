@@ -6,18 +6,17 @@
  */
 
 #include <mkl-constants.h>
-#include <precision-definition.h>
-#include <Solver.h>
-#include <CSR3Matrix.h>
-#include <iostream>
-#include <cmath>
-#include <utilities.h>
-
 #include <MonteCarloSimulator.h>
+#include <omp.h>
+#include <iostream>
+
+#include <precision-definition.h>
 
 MonteCarloSimulator::MonteCarloSimulator(MKL_INT basisSize,
-MKL_INT samplesNumber, Solver &solver) :
-		basisSize(basisSize), samplesNumber(samplesNumber), solver(solver), zeroVector(
+MKL_INT samplesNumber, int nThreads, ModelBuilder &modelBuilder,
+		RndNumProvider &rndNumProvider) :
+		basisSize(basisSize), samplesNumber(samplesNumber), nThreads(nThreads), modelBuilder(
+				modelBuilder), rndNumProvider(rndNumProvider), zeroVector(
 				new COMPLEX_TYPE[basisSize]), groundState(
 				new COMPLEX_TYPE[basisSize]) {
 	for (int i = 0; i < basisSize; i++) {
@@ -34,19 +33,41 @@ MonteCarloSimulator::~MonteCarloSimulator() {
 	delete[] groundState;
 }
 
-SimulationResult *MonteCarloSimulator::simulate(std::ostream &consoleStream) {
+SimulationResult *MonteCarloSimulator::simulate(std::ostream &consoleStream,
+FLOAT_TYPE timeStep, int nTimeSteps) {
 	//A storage of final states of all realizations
 	COMPLEX_TYPE ** const result = new COMPLEX_TYPE*[samplesNumber];
 	for (int i = 0; i < samplesNumber; i++) {
 		result[i] = new COMPLEX_TYPE[basisSize];
 	}
 
-	//#pragma omp parallel for
+	int threadId = 0;
+#if THREADS_NUM>1
+#pragma omp parallel num_threads(THREADS_NUM) private(threadId)
+	{
+		threadId = omp_get_thread_num();
+#ifdef DEBUG
+		consoleStream << "Thread " + std::to_string(threadId) + " started\n";
+#endif
+#endif
+	Solver solver(threadId, basisSize, timeStep, nTimeSteps, modelBuilder,
+			rndNumProvider);
+
+#if THREADS_NUM>1
+#pragma omp for
+#endif
 	for (int sampleIndex = 0; sampleIndex < samplesNumber; sampleIndex++) {
 		solver.solve(consoleStream, groundState, result[sampleIndex]);
 	}
 
-	SimulationResult *simulationResult = new SimulationResult(samplesNumber, basisSize, result);
+#if THREADS_NUM>1
+#ifdef DEBUG
+	consoleStream << "Thread: " + std::to_string(threadId) + " finished\n";
+#endif
+}
+#endif
+	SimulationResult *simulationResult = new SimulationResult(samplesNumber,
+			basisSize, result);
 	return simulationResult;
 }
 

@@ -13,12 +13,16 @@
 #include <CSR3Matrix.h>
 #include <SimulationResult.h>
 #include <iostream>
+#include <ModelBuilder.h>
+#include <RndNumProvider.h>
 
 class MonteCarloSimulator {
 	const MKL_INT basisSize;
 	const MKL_INT samplesNumber;
+	const int nThreads;
 
-	Solver &solver;
+	ModelBuilder &modelBuilder;
+	RndNumProvider &rndNumProvider;
 
 	// a vector with all zeros
 	COMPLEX_TYPE * const zeroVector;
@@ -26,11 +30,12 @@ class MonteCarloSimulator {
 	COMPLEX_TYPE * const groundState;
 
 public:
-	MonteCarloSimulator(MKL_INT basisSize, MKL_INT samplesNumber,
-			Solver &solver);
+	MonteCarloSimulator(MKL_INT basisSize, MKL_INT samplesNumber, int nThreads,
+			ModelBuilder &modelBuilder, RndNumProvider &rndNumProvider);
 	~MonteCarloSimulator();
 
-	SimulationResult *simulate(std::ostream &consoleStream);
+	SimulationResult *simulate(std::ostream &consoleStream, FLOAT_TYPE timeStep,
+			int nTimeSteps);
 };
 
 #endif /* SRC_INCLUDE_MONTECARLOSIMULATOR_H_ */
