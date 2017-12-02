@@ -15,8 +15,6 @@
 #include <RndNumProvider.h>
 
 class Solver {
-	// Use typed constants instead of #define
-	static const int RND_NUM_BUFF_SIZE = 8 * 1024;
 	//an alignment for memory in a multithreaded environment
 	static const int SIMDALIGN = 1024;
 

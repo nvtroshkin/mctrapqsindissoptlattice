@@ -9,6 +9,7 @@
 #include <MonteCarloSimulator.h>
 #include <omp.h>
 #include <iostream>
+#include <cmath>
 
 #include <precision-definition.h>
 
@@ -41,7 +42,13 @@ FLOAT_TYPE timeStep, int nTimeSteps) {
 		result[i] = new COMPLEX_TYPE[basisSize];
 	}
 
+	//to obtain unbiased random numbers for each thread
 	int threadId = 0;
+
+#ifdef PRINT_PROGRESS
+	int progress = 0;
+#endif
+
 #if THREADS_NUM>1
 #pragma omp parallel num_threads(THREADS_NUM) private(threadId)
 	{
@@ -58,6 +65,13 @@ FLOAT_TYPE timeStep, int nTimeSteps) {
 #endif
 	for (int sampleIndex = 0; sampleIndex < samplesNumber; sampleIndex++) {
 		solver.solve(consoleStream, groundState, result[sampleIndex]);
+#ifdef PRINT_PROGRESS
+		if(progress % NOTIFY_EACH_N_SAMPLES == 0) {
+			consoleStream << "Progress: " + std::to_string(std::lround(100.0*progress/samplesNumber)) + "%\n";
+		}
+#pragma omp atomic update
+		progress++;
+#endif
 	}
 
 #if THREADS_NUM>1

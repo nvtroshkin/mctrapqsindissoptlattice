@@ -150,7 +150,7 @@ void Solver::solve(std::ostream &consoleStream,
 
 	//check if random numbers valid - replace with correct random numbers generation
 	if (rndNumIndex >= RND_NUM_BUFF_SIZE) {
-		std::cout << "No more random numbers" << endl;
+		throw "No more random numbers";
 	}
 
 #ifdef DEBUG_MODE
