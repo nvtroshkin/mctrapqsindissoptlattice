@@ -2,7 +2,7 @@
  * macro.h
  *
  *  Created on: Nov 22, 2017
- *      Author: fake_sci
+ *      Author: fakesci
  */
 
 #ifndef SRC_INCLUDE_PRECISION_DEFINITION_H_

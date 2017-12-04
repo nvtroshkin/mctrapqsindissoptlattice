@@ -2,7 +2,7 @@
  * system-constants.h
  *
  *  Created on: Nov 18, 2017
- *      Author: fake_sci
+ *      Author: fakesci
  */
 
 #ifndef SRC_SYSTEM_CONSTANTS_H_

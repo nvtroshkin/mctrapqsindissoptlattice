@@ -2,7 +2,7 @@
  * magic-constants.h
  *
  *  Created on: Nov 29, 2017
- *      Author: fake_sci
+ *      Author: fakesci
  */
 
 #ifndef SRC_INCLUDE_MAGIC_CONSTANTS_H_

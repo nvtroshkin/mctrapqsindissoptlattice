@@ -2,7 +2,7 @@
  * CSR3Matrix.cpp
  *
  *  Created on: Nov 29, 2017
- *      Author: fake_sci
+ *      Author: fakesci
  */
 
 #include <precision-definition.h>

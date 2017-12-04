@@ -2,7 +2,7 @@
  * MonteCarloSimulator.h
  *
  *  Created on: Nov 29, 2017
- *      Author: fake_sci
+ *      Author: fakesci
  */
 
 #ifndef SRC_INCLUDE_MONTECARLOSIMULATOR_H_
