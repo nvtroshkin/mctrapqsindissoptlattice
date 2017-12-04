@@ -61,8 +61,8 @@ There are two projects embedded into one repository: OneAtom - source code, OneA
     1. <Intel MKL base dir>/mkl/lib/intel64
     1. <Intel TBB base dir>/lib/intel64/<your compiler folder>
 1. Ibid > Miscellaneous >
-    1. > Linker flags > Add -fopenmp
-    1. > Other objects > Add
+    1. Linker flags > Add -fopenmp
+    1. Other objects > Add
         1. <googletest release dir>/googletest/make/gtest_main.a
         1. <googletest release dir>/googlemock/make/gmock_main.a
 1. Run > Run Configurations > C/C++ Unit > OneAtomTest Debug > Environment > New
