@@ -31,43 +31,43 @@ There are two projects embedded into one repository: OneAtom - source code, OneA
     1. tbbmalloc
     1. mkl_sequential
 1. Ibid at the bottom > Library search path > Add
-  1. <Intel MKL base dir>/mkl/lib/intel64
-  1. <Intel TBB base dir>/lib/intel64/<your compiler folder>
+    1. <Intel MKL base dir>/mkl/lib/intel64
+    1. <Intel TBB base dir>/lib/intel64/<your compiler folder>
 1. Ibid > Miscellaneous > Linker flags > Add -fopenmp
 1. Run > Run Configurations > C/C++ Application > OneAtom Debug > Environment > New
-  1. Linux: LD_LIBRARY_PATH = "<Intel MKL base dir>/mkl/lib/intel64_lin/:<Intel TBB base dir>/lib/intel64/gcc4.7/"
-  1. Windows: PATH = ...
+    1. Linux: LD_LIBRARY_PATH = "<Intel MKL base dir>/mkl/lib/intel64_lin/:<Intel TBB base dir>/lib/intel64/gcc4.7/"
+    1. Windows: PATH = ...
 
 ## OneAtomTest project configuration
 
 1. Create C++ prject from source at ./OneAtom
 1. If there is no imported_src source directory linked to the OneAtom project, create it
-  1. Project > New > Folder > Advanced > Linked Folder
-  1. Choose the src folder form the OneTest project
+    1. Project > New > Folder > Advanced > Linked Folder
+    1. Choose the src folder form the OneTest project
 1. Project > Properties > C/C++ Build > Settings > C++ Compiler > Includes > Add
-  1. <Intel TBB base dir>/include/tbb
-  1. <Intel MKL base dir>/mkl/include
-  1. OneAtom/src/include - header files from the OneTest project
-  1. <googletest release dir>/googletest/include
-  1. <googletest release dir>/googlemock/include
+    1. <Intel TBB base dir>/include/tbb
+    1. <Intel MKL base dir>/mkl/include
+    1. OneAtom/src/include - header files from the OneTest project
+    1. <googletest release dir>/googletest/include
+    1. <googletest release dir>/googlemock/include
 1. Ibid > Miscellaneous > Other flags > Add -fopenmp
 1. ... > C++ Linker > Libraries > add 
-  1. mkl_intel_lp64
-  1. mkl_core
-  1. tbbmalloc
-  1. mkl_sequential
-  1. pthread
+    1. mkl_intel_lp64
+    1. mkl_core
+    1. tbbmalloc
+    1. mkl_sequential
+    1. pthread
 1. Ibid at the bottom > Library search path > Add
-  1. <Intel MKL base dir>/mkl/lib/intel64
-  1. <Intel TBB base dir>/lib/intel64/<your compiler folder>
+    1. <Intel MKL base dir>/mkl/lib/intel64
+    1. <Intel TBB base dir>/lib/intel64/<your compiler folder>
 1. Ibid > Miscellaneous >
-  1. > Linker flags > Add -fopenmp
-  1. > Other objects > Add
-    1. <googletest release dir>/googletest/make/gtest_main.a
-    1. <googletest release dir>/googlemock/make/gmock_main.a
+    1. > Linker flags > Add -fopenmp
+    1. > Other objects > Add
+        1. <googletest release dir>/googletest/make/gtest_main.a
+        1. <googletest release dir>/googlemock/make/gmock_main.a
 1. Run > Run Configurations > C/C++ Unit > OneAtomTest Debug > Environment > New
-  1. Linux: LD_LIBRARY_PATH = "<Intel MKL base dir>/mkl/lib/intel64_lin/:<Intel TBB base dir>/lib/intel64/gcc4.7/"
-  1. Windows: PATH = ...
+    1. Linux: LD_LIBRARY_PATH = "<Intel MKL base dir>/mkl/lib/intel64_lin/:<Intel TBB base dir>/lib/intel64/gcc4.7/"
+    1. Windows: PATH = ...
 
 # Usage
 
