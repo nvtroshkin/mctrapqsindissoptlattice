@@ -2,7 +2,7 @@
  * MonteCarloSimulator.cpp
  *
  *  Created on: Nov 29, 2017
- *      Author: fake_sci
+ *      Author: fakesci
  */
 
 #include <mkl-constants.h>

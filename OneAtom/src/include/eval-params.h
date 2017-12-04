@@ -2,7 +2,7 @@
  * constants.h
  *
  *  Created on: Nov 18, 2017
- *      Author: fake_sci
+ *      Author: fakesci
  */
 
 #ifndef SRC_EVAL_PARAMS_H_

@@ -2,7 +2,7 @@
  * RndNumProvider.h
  *
  *  Created on: Nov 30, 2017
- *      Author: fake_sci
+ *      Author: fakesci
  */
 
 #ifndef SRC_INCLUDE_RNDNUMPROVIDERIMPL_H_

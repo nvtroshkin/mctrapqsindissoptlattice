@@ -2,7 +2,7 @@
  * utilities.cpp
  *
  *  Created on: Nov 24, 2017
- *      Author: fake_sci
+ *      Author: fakesci
  */
 
 #include <precision-definition.h>

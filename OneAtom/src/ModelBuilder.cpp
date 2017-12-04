@@ -1,6 +1,6 @@
 /*
  *  Created on: Nov 18, 2017
- *      Author: fake_sci
+ *      Author: fakesci
  */
 
 #include <ModelBuilder.h>
