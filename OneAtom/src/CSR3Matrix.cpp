@@ -8,13 +8,11 @@
 #include <precision-definition.h>
 #include <CSR3Matrix.h>
 
-CSR3Matrix::CSR3Matrix(int rowsNumber, int nonZeroValuesNumber) :
-		rowsNumber(rowsNumber), nonZeroValuesNumber(nonZeroValuesNumber), values(
-				new COMPLEX_TYPE[nonZeroValuesNumber]), columns(
-				new int[nonZeroValuesNumber]), rowIndex(
-				new int[rowsNumber + 1]/*non-zero element on each row*/) {
-	//put the length of the values array at the end
-	rowIndex[rowsNumber] = nonZeroValuesNumber;
+CSR3Matrix::CSR3Matrix(int rowsNumber, int columnsNumber) :
+		rowsNumber(rowsNumber), values(
+				new COMPLEX_TYPE[rowsNumber * columnsNumber]), columns(
+				new int[rowsNumber * columnsNumber]), rowIndex(
+				new int[rowsNumber + 1]) {
 }
 
 CSR3Matrix::~CSR3Matrix() {

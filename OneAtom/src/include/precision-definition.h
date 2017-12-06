@@ -25,6 +25,8 @@
 #define complex_cblas_dotc_sub(...) cblas_cdotc_sub (__VA_ARGS__)
 #define complex_mkl_cspblas_csrgemv(...) mkl_cspblas_ccsrgemv (__VA_ARGS__)
 #define complex_cblas_axpy(...) cblas_caxpy (__VA_ARGS__)
+#define complex_mkl_dnscsr(...) mkl_cdnscsr (__VA_ARGS__)
+#define complex_cblas_nrm2(...) cblas_scnrm2 (__VA_ARGS__)
 
 #define cblas_asum(...) cblas_sasum (__VA_ARGS__)
 #define cblas_dot(...) cblas_dsdot (__VA_ARGS__)
@@ -45,6 +47,8 @@
 #define complex_cblas_dotc_sub(...) cblas_zdotc_sub (__VA_ARGS__)
 #define complex_mkl_cspblas_csrgemv(...) mkl_cspblas_zcsrgemv (__VA_ARGS__)
 #define complex_cblas_axpy(...) cblas_zaxpy (__VA_ARGS__)
+#define complex_mkl_dnscsr(...) mkl_zdnscsr (__VA_ARGS__)
+#define complex_cblas_nrm2(...) cblas_dznrm2 (__VA_ARGS__)
 
 #define cblas_asum(...) cblas_dasum (__VA_ARGS__)
 #define cblas_dot(...) cblas_ddot (__VA_ARGS__)

@@ -11,9 +11,9 @@
 #include <precision-definition.h>
 #include <Solver.h>
 #include <CSR3Matrix.h>
+#include <Model.h>
 #include <SimulationResult.h>
 #include <iostream>
-#include <ModelBuilder.h>
 #include <RndNumProvider.h>
 
 class MonteCarloSimulator {
@@ -21,7 +21,7 @@ class MonteCarloSimulator {
 	const MKL_INT samplesNumber;
 	const int nThreads;
 
-	ModelBuilder &modelBuilder;
+	Model &model;
 	RndNumProvider &rndNumProvider;
 
 	// a vector with all zeros
@@ -30,8 +30,8 @@ class MonteCarloSimulator {
 	COMPLEX_TYPE * const groundState;
 
 public:
-	MonteCarloSimulator(MKL_INT basisSize, MKL_INT samplesNumber, int nThreads,
-			ModelBuilder &modelBuilder, RndNumProvider &rndNumProvider);
+	MonteCarloSimulator(MKL_INT samplesNumber, int nThreads,
+			Model &model, RndNumProvider &rndNumProvider);
 	~MonteCarloSimulator();
 
 	SimulationResult *simulate(std::ostream &consoleStream, FLOAT_TYPE timeStep,

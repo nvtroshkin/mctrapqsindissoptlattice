@@ -19,16 +19,18 @@
 
 using std::endl;
 
-Solver::Solver(int id, MKL_INT basisSize, FLOAT_TYPE timeStep, int timeStepsNumber,
-		ModelBuilder &modelBuilder, RndNumProvider &rndNumProvider) :
+Solver::Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
+		RndNumProvider &rndNumProvider) :
 		complexTHalfStep( { 0.5 * timeStep, 0.0 }), complexTStep( { timeStep,
 				0.0 }), complexTSixthStep( { timeStep / 6.0, 0.0 }), complexTwo(
-				{ 2.0, 0.0 }), complexOne( { 1.0, 0.0 }), basisSize(basisSize), timeStepsNumber(
-				timeStepsNumber), hCSR3(
-				modelBuilder.getHInCSR3()), aCSR3(modelBuilder.getAInCSR3()), aPlusCSR3(
-				modelBuilder.getAPlusInCSR3()), rndNumProvider(rndNumProvider), rndNumIndex(0) {
+				{ 2.0, 0.0 }), complexOne( { 1.0, 0.0 }), basisSize(
+				model.getBasisSize()), timeStepsNumber(timeStepsNumber), lCSR3(
+				model.getLInCSR3()), a1CSR3(model.getA1InCSR3()), a1PlusCSR3(
+				model.getA1PlusInCSR3()), a2CSR3(model.getA2InCSR3()), a2PlusCSR3(
+				model.getA2PlusInCSR3()), rndNumProvider(rndNumProvider), rndNumIndex(
+				0) {
 	zeroVector = new COMPLEX_TYPE[basisSize];
-	for (int i = 0; i < basisSize; i++) {
+	for (int i = 0; i < basisSize; ++i) {
 		zeroVector[i].real = 0.0;
 		zeroVector[i].imag = 0.0;
 	}
@@ -90,10 +92,10 @@ void Solver::solve(std::ostream &consoleStream,
 
 	//get a random number for the calculation of the random waiting time
 	//of the next jump
-	FLOAT_TYPE svNormThreshold = rndNumBuff[rndNumIndex++];
+	FLOAT_TYPE svNormThreshold = nextRandom();
 
 	//Calculate each sample by the time axis
-	for (int i = 0; i < timeStepsNumber; i++) {
+	for (int i = 0; i < timeStepsNumber; ++i) {
 
 #ifdef DEBUG_MODE
 		consoleStream << "Solver: step " << i << endl;
@@ -106,8 +108,8 @@ void Solver::solve(std::ostream &consoleStream,
 		//at t(i+1)...
 		//write the f function
 
-		make4thOrderRungeKuttaStep(consoleStream, hCSR3->values,
-				hCSR3->rowIndex, hCSR3->columns);
+		make4thOrderRungeKuttaStep(consoleStream, lCSR3->values,
+				lCSR3->rowIndex, lCSR3->columns);
 
 		//...falls below the threshold, which is a random number
 		//uniformly distributed between [0,1] - svNormThreshold
@@ -226,14 +228,22 @@ inline void Solver::normalizeVector(COMPLEX_TYPE *stateVector) {
 	complex_cblas_dotc_sub(basisSize, stateVector, NO_INC, stateVector, NO_INC,
 			&norm2);
 
-	vSqrt((MKL_INT) 1, &(norm2.real), &(normReversed.real));
-	normReversed.real = 1.0 / normReversed.real;
+	normalizeVector(stateVector, norm2, tempVector);
 
-	complex_cblas_copy(basisSize, zeroVector, NO_INC, tempVector, NO_INC);
-	complex_cblas_axpy(basisSize, &normReversed, stateVector, NO_INC,
-			tempVector, NO_INC);
 	//write back
 	complex_cblas_copy(basisSize, tempVector, NO_INC, stateVector, NO_INC);
+}
+
+inline void Solver::normalizeVector(COMPLEX_TYPE *stateVector,
+		const COMPLEX_TYPE &stateVectorNorm2,
+		COMPLEX_TYPE *result) {
+
+	vSqrt((MKL_INT) 1, &(stateVectorNorm2.real), &(normReversed.real));
+	normReversed.real = 1.0 / normReversed.real;
+
+	complex_cblas_copy(basisSize, zeroVector, NO_INC, result, NO_INC);
+	complex_cblas_axpy(basisSize, &normReversed, stateVector, NO_INC, result,
+			NO_INC);
 }
 
 inline void Solver::makeJump(std::ostream &consoleStream,
@@ -241,16 +251,33 @@ FLOAT_TYPE &svNormThreshold, COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
 	//then a jump is occurred between t(i) and t(i+1)
 	//let's suppose it was at time t(i)
 
-	//calculate the state vector after the jump
-	//store it at t(i+1)
-	complex_mkl_cspblas_csrgemv("n", &basisSize, aCSR3->values, aCSR3->rowIndex,
-			aCSR3->columns, prevState, curState);
+	//calculate vectors and their norms after each type of jump
+	//(in the first cavity or in the second)
+	complex_mkl_cspblas_csrgemv("n", &basisSize, a1CSR3->values,
+			a1CSR3->rowIndex, a1CSR3->columns, prevState, k1);
+	complex_cblas_dotc_sub(basisSize, k1, NO_INC, k1, NO_INC, &n12);
 
-	//normalize vector - may not leave it unnormalized because the norm
-	//should fall from one during the unitary phase
-	normalizeVector(curState);
+	complex_mkl_cspblas_csrgemv("n", &basisSize, a2CSR3->values,
+			a2CSR3->rowIndex, a2CSR3->columns, prevState, k2);
+	complex_cblas_dotc_sub(basisSize, k2, NO_INC, k2, NO_INC, &n22);
+
+	//calculate probabilities of each jump
+	FLOAT_TYPE p1 = n12.real / n12.real + n22.real;
+
+	//choose which jump is occurred,
+	if (nextRandom() > p1) {
+		//a jump occurred in the second cavity
+		normalizeVector(k1, n12, curState);
+	} else {
+		// in the first
+		normalizeVector(k2, n22, curState);
+	}
 
 	//update the random time
-	svNormThreshold = rndNumBuff[rndNumIndex++];
+	svNormThreshold = nextRandom();
+}
+
+inline FLOAT_TYPE Solver::nextRandom() {
+	return rndNumBuff[rndNumIndex++];
 }
 

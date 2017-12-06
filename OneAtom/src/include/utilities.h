@@ -19,18 +19,4 @@
 void print(std::ostream &os, const char title[], const COMPLEX_TYPE array[],
 		int arraySize);
 
-/**
- * Returns a photon number describing a state
- */
-inline int n(int stateIndex) {
-	return stateIndex / 2;
-}
-
-/**
- * Returns a level number of the atom describing a state
- */
-inline int s(int stateIndex) {
-	return stateIndex % 2;
-}
-
 #endif /* SRC_INCLUDE_UTILITIES_H_ */

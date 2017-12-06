@@ -10,18 +10,37 @@
 
 #include <precision-definition.h>
 
+/**
+ * The CSR3 Storage Format, the three array variation
+ *
+ * See: https://software.intel.com/en-us/mkl-developer-reference-c-sparse-blas-csr-matrix-storage-format
+ */
 struct CSR3Matrix {
 
+	/**
+	 * The total number of rows
+	 */
 	int rowsNumber;
-	int nonZeroValuesNumber;
-	//
-	COMPLEX_TYPE *values;
-	int *columns;
-	int *rowIndex;	//indices from values of the first
-	//non-null row elements of the matrix being compressed
-	//the last element - total number of elements in values
 
-	CSR3Matrix(int rowsNumber, int nonZeroValuesNumber);
+	/**
+	 * The non-zero elements
+	 */
+	COMPLEX_TYPE *values;
+
+	/**
+	 * The i-th element value is the column of the i-th value in values
+	 */
+	int *columns;
+
+	/**
+	 * The i-th element is the index of the element in values
+	 * that is the first non-zero element in the i-th row of the matrix
+	 *
+	 * the last element - the total number of elements in values (equals rowsNumber)
+	 */
+	int *rowIndex;
+
+	CSR3Matrix(int rowsNumber, int columnsNumber);
 	~CSR3Matrix();
 };
 

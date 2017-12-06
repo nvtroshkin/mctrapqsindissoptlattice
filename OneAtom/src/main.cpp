@@ -1,6 +1,6 @@
 #include <eval-params.h>
 #include <ImpreciseValue.h>
-#include <ModelBuilder.h>
+#include <Model.h>
 #include <MonteCarloSimulator.h>
 #include <RndNumProviderImpl.h>
 #include <system-constants.h>
@@ -13,20 +13,34 @@ using namespace std;
 int main(int argc, char **argv) {
 	auto start = chrono::steady_clock::now();
 
-	ModelBuilder modelBuilder(MAX_PHOTON_NUMBER, DRESSED_BASIS_SIZE, KAPPA,
-			DELTA_OMEGA, G, LATIN_E);
-	RndNumProviderImpl rndNumProvider(RANDSEED, THREADS_NUM);
-	MonteCarloSimulator monteCarloSimulator(DRESSED_BASIS_SIZE,
-			MONTE_CARLO_SAMPLES_NUMBER, THREADS_NUM, modelBuilder, rndNumProvider);
+	try {
+		Model model(ATOM_1_LEVELS_NUMBER, ATOM_2_LEVELS_NUMBER,
+				FIELD_1_FOCK_STATES_NUMBER, FIELD_2_FOCK_STATES_NUMBER, KAPPA,
+				DELTA_OMEGA, G, scE, J);
+		RndNumProviderImpl rndNumProvider(RANDSEED, THREADS_NUM);
+		MonteCarloSimulator monteCarloSimulator(MONTE_CARLO_SAMPLES_NUMBER,
+				THREADS_NUM, model, rndNumProvider);
 
-	SimulationResult *result = monteCarloSimulator.simulate(cout, TIME_STEP_SIZE, TIME_STEPS_NUMBER);
+		SimulationResult *result = monteCarloSimulator.simulate(cout,
+				TIME_STEP_SIZE, TIME_STEPS_NUMBER);
 
-	ImpreciseValue photonNumber = result->getMeanPhotonNumber();
-	cout << "Mean photon number: " << photonNumber.mean << "\n";
-	cout << "Standard deviation: " << photonNumber.standardDeviation << endl;
+		ImpreciseValue *avgFirstCavityPhotons =
+				result->getAvgFirstCavityPhotons();
+		cout << "Avg field photons in the first cavity: "
+				<< avgFirstCavityPhotons->mean << "; standard deviation: "
+				<< avgFirstCavityPhotons->standardDeviation << endl;
 
-	//freeing up resources
-	delete result;
+		ImpreciseValue *avgSecondCavityPhotons =
+				result->getAvgSecondCavityPhotons();
+		cout << "Avg field photons in the second cavity: "
+				<< avgSecondCavityPhotons->mean << "; standard deviation: "
+				<< avgSecondCavityPhotons->standardDeviation << endl;
+
+		//freeing up resources
+		delete result;
+	} catch (char *message) {
+		cerr << message;
+	}
 
 	auto end = chrono::steady_clock::now();
 	auto diff = end - start;

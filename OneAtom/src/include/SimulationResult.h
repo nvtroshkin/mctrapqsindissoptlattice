@@ -10,23 +10,31 @@
 
 #include <precision-definition.h>
 #include <ImpreciseValue.h>
+#include <Model.h>
 
 class SimulationResult {
+
+	typedef int (Model::*PhotonNumberFuncP)(int index) const;
+
+	COMPLEX_TYPE ** const result;
 	const int samplesNumber;
 	const int basisSize;
-	COMPLEX_TYPE ** const result;
+
+	Model &model;
 
 	//caches
-	mutable ImpreciseValue *photonNumber = nullptr;
+	mutable ImpreciseValue *avgPhotons1 = nullptr;
+	mutable ImpreciseValue *avgPhotons2 = nullptr;
+
+	ImpreciseValue *getAvgPhotons(PhotonNumberFuncP n) const;
 
 public:
-	SimulationResult(int samplesNumber, int basisSize,
-			COMPLEX_TYPE ** const result);
+	SimulationResult(COMPLEX_TYPE ** const result, int samplesNumber,
+			Model &model);
 	~SimulationResult();
 
-	ImpreciseValue &getMeanPhotonNumber() const;
+	ImpreciseValue *getAvgFirstCavityPhotons() const;
+	ImpreciseValue *getAvgSecondCavityPhotons() const;
 };
-
-
 
 #endif /* SRC_INCLUDE_SIMULATIONRESULT_H_ */

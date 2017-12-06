@@ -11,7 +11,7 @@
 #include <precision-definition.h>
 #include <iostream>
 #include <CSR3Matrix.h>
-#include <ModelBuilder.h>
+#include <Model.h>
 #include <RndNumProvider.h>
 
 class Solver {
@@ -28,18 +28,21 @@ class Solver {
 	const int timeStepsNumber;
 
 	//norms
-	COMPLEX_TYPE norm2 { 1.0, 0.0 }, normReversed { 1.0, 0.0 };
+	COMPLEX_TYPE norm2 { 1.0, 0.0 }, normReversed { 1.0, 0.0 }, n12, n22;
 
 	//the model
-	const CSR3Matrix * const hCSR3;
-	const CSR3Matrix * const aCSR3;
-	const CSR3Matrix * const aPlusCSR3;
+	const CSR3Matrix * const lCSR3;
+	const CSR3Matrix * const a1CSR3;
+	const CSR3Matrix * const a1PlusCSR3;
+	const CSR3Matrix * const a2CSR3;
+	const CSR3Matrix * const a2PlusCSR3;
 
 	RndNumProvider &rndNumProvider;
 
 	//caches
-	COMPLEX_TYPE *zeroVector;COMPLEX_TYPE *k1, *k2, *k3, *k4, *tempVector,
-			*prevState, *curState;
+	COMPLEX_TYPE *zeroVector;
+
+	COMPLEX_TYPE *k1, *k2, *k3, *k4, *tempVector, *prevState, *curState;
 
 	//random numbers
 	int rndNumIndex;	//indicates where we are in the buffer
@@ -49,9 +52,14 @@ class Solver {
 			const COMPLEX_TYPE *HCSR3Values, const int *HCSR3RowIndex,
 			const int *HCSR3Columns);
 
+	void normalizeVector(COMPLEX_TYPE *stateVector,
+			const COMPLEX_TYPE &stateVectorNorm2,
+			COMPLEX_TYPE *result);
+
+	FLOAT_TYPE nextRandom();
 public:
-	Solver(int id, MKL_INT basisSize, FLOAT_TYPE timeStep, int timeStepsNumber,
-			ModelBuilder &modelBuilder, RndNumProvider &rndNumProvider);
+	Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
+			RndNumProvider &rndNumProvider);
 	~Solver();
 
 	/**

@@ -21,6 +21,7 @@ public:
 	 */
 	virtual void initBuffer(int streamId, FLOAT_TYPE *buffer,
 			int bufferSize) = 0;
+
 };
 
 #endif /* SRC_INCLUDE_RNDNUMPROVIDER_H_ */
