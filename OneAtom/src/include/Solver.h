@@ -18,6 +18,8 @@ class Solver {
 	//an alignment for memory in a multithreaded environment
 	static const int SIMDALIGN = 1024;
 
+	const int id;
+
 	const COMPLEX_TYPE complexTHalfStep;
 	const COMPLEX_TYPE complexTStep;
 	const COMPLEX_TYPE complexTSixthStep;

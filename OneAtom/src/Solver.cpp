@@ -22,8 +22,8 @@ using std::endl;
 
 Solver::Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
 		RndNumProvider &rndNumProvider) :
-		complexTHalfStep( { 0.5 * timeStep, 0.0 }), complexTStep( { timeStep,
-				0.0 }), complexTSixthStep( { timeStep / 6.0, 0.0 }), complexTwo(
+		id(id), complexTHalfStep( { 0.5 * timeStep, 0.0 }), complexTStep( {
+				timeStep, 0.0 }), complexTSixthStep( { timeStep / 6.0, 0.0 }), complexTwo(
 				{ 2.0, 0.0 }), complexOne( { 1.0, 0.0 }), basisSize(
 				model.getBasisSize()), timeStepsNumber(timeStepsNumber), lCSR3(
 				model.getLInCSR3()), a1CSR3(model.getA1InCSR3()), a1PlusCSR3(
@@ -123,7 +123,7 @@ void Solver::solve(std::ostream &consoleStream,
 #ifdef DEBUG_JUMPS
 		LOG_IF_APPROPRIATE(
 				consoleStream << "Norm: threshold = " << svNormThreshold
-						<< ", current = " << norm2.real << endl);
+				<< ", current = " << norm2.real << endl);
 #endif
 
 		if (svNormThreshold > norm2.real) {
@@ -131,7 +131,7 @@ void Solver::solve(std::ostream &consoleStream,
 			consoleStream << "Jump" << endl;
 			consoleStream << "Step: " << i << endl;
 			consoleStream << "Norm^2: threshold = " << svNormThreshold
-					<< ", current = " << norm2.real << endl;
+			<< ", current = " << norm2.real << endl;
 #endif
 
 			makeJump(consoleStream, prevState, curState);
@@ -141,7 +141,7 @@ void Solver::solve(std::ostream &consoleStream,
 
 #ifdef DEBUG_JUMPS
 			consoleStream << "New norm^2 threshold = " << svNormThreshold
-					<< endl;
+			<< endl;
 #endif
 		}
 
@@ -259,7 +259,7 @@ inline void Solver::normalizeVector(COMPLEX_TYPE *stateVector,
 }
 
 inline void Solver::makeJump(std::ostream &consoleStream,
-		COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
+COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
 	//then a jump is occurred between t(i) and t(i+1)
 	//let's suppose it was at time t(i)
 
@@ -289,7 +289,7 @@ inline void Solver::makeJump(std::ostream &consoleStream,
 	consoleStream << "it's norm^2: " << n22.real << endl;
 
 	consoleStream << "Probabilities of the jumps: first = " << p1
-			<< ", second = " << 1 - p1 << endl;
+	<< ", second = " << 1 - p1 << endl;
 #endif
 
 	//choose which jump is occurred,
@@ -316,6 +316,12 @@ inline void Solver::makeJump(std::ostream &consoleStream,
 }
 
 inline FLOAT_TYPE Solver::nextRandom() {
+	//check whether there are random numbers left
+	if (rndNumIndex == RND_NUM_BUFF_SIZE) {
+		rndNumProvider.initBuffer(id, rndNumBuff, RND_NUM_BUFF_SIZE);
+		rndNumIndex = 0;
+	}
+
 	return rndNumBuff[rndNumIndex++];
 }
 
