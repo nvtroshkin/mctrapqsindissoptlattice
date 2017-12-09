@@ -9,8 +9,9 @@
 #define SRC_INCLUDE_PRECISION_DEFINITION_H_
 
 #include <mkl.h>
+#include <ipps.h>
 
-//used precision - uncoment the right row
+//used precision - uncomment the right row
 //#define SINGLE_PRECISION
 #define DOUBLE_PRECISION
 
@@ -28,7 +29,7 @@
 #define complex_mkl_dnscsr(...) mkl_cdnscsr (__VA_ARGS__)
 #define complex_cblas_nrm2(...) cblas_scnrm2 (__VA_ARGS__)
 
-#define cblas_asum(...) cblas_sasum (__VA_ARGS__)
+#define ippsSum_f(...) ippsSum_32f (__VA_ARGS__)
 #define cblas_dot(...) cblas_dsdot (__VA_ARGS__)
 #define cblas_copy(...) cblas_scopy (__VA_ARGS__)
 #define cblas_scal(...) cblas_sscal (__VA_ARGS__)
@@ -50,7 +51,7 @@
 #define complex_mkl_dnscsr(...) mkl_zdnscsr (__VA_ARGS__)
 #define complex_cblas_nrm2(...) cblas_dznrm2 (__VA_ARGS__)
 
-#define cblas_asum(...) cblas_dasum (__VA_ARGS__)
+#define ippsSum_f(...) ippsSum_64f (__VA_ARGS__)
 #define cblas_dot(...) cblas_ddot (__VA_ARGS__)
 #define cblas_copy(...) cblas_dcopy (__VA_ARGS__)
 #define cblas_scal(...) cblas_dscal (__VA_ARGS__)

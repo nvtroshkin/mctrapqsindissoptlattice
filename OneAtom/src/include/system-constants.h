@@ -22,14 +22,14 @@ static const MKL_INT ATOM_2_LEVELS_NUMBER = 2;
  * this introduces levels where the states are cut (greatly affects precision
  * if is not enough high and performance if chosen excessively high)
  */
-static const MKL_INT FIELD_1_FOCK_STATES_NUMBER = 3;
-static const MKL_INT FIELD_2_FOCK_STATES_NUMBER = 3;
+static const MKL_INT FIELD_1_FOCK_STATES_NUMBER = 2;
+static const MKL_INT FIELD_2_FOCK_STATES_NUMBER = 2;
 
 //Parameters of the system
 static const FLOAT_TYPE KAPPA = 1.0;
-static const FLOAT_TYPE DELTA_OMEGA = 15.0;
+static const FLOAT_TYPE DELTA_OMEGA = 20.0;
 static const FLOAT_TYPE G = 50.0;
-static const FLOAT_TYPE scE = 16.0;
+static const FLOAT_TYPE scE = 10.0;
 static const FLOAT_TYPE J = 0.1;
 
 #endif /* SRC_SYSTEM_CONSTANTS_H_ */

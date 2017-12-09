@@ -26,7 +26,7 @@ SimulationResult::~SimulationResult() {
 	delete[] result;
 }
 
-ImpreciseValue *SimulationResult::getAvgFirstCavityPhotons() const {
+ImpreciseValue *SimulationResult::getFirstCavityPhotons() const {
 	if (avgPhotons1 == nullptr) {
 		avgPhotons1 = getAvgPhotons(&Model::n1);
 	}
@@ -34,7 +34,7 @@ ImpreciseValue *SimulationResult::getAvgFirstCavityPhotons() const {
 	return avgPhotons1;
 }
 
-ImpreciseValue *SimulationResult::getAvgSecondCavityPhotons() const {
+ImpreciseValue *SimulationResult::getSecondCavityPhotons() const {
 	if (avgPhotons2 == nullptr) {
 		avgPhotons2 = getAvgPhotons(&Model::n2);
 	}
@@ -64,8 +64,9 @@ inline ImpreciseValue *SimulationResult::getAvgPhotons(
 		meanPhotonNumbers[i] = norm2.real;
 	}
 
-	FLOAT_TYPE meanPhotonsNumber = cblas_asum(samplesNumber, meanPhotonNumbers,
-			NO_INC);
+	FLOAT_TYPE meanPhotonsNumber;
+	ippsSum_f(meanPhotonNumbers, samplesNumber, &meanPhotonsNumber);
+
 	meanPhotonsNumber /= samplesNumber;
 
 	FLOAT_TYPE standardDeviation = 0.0;
@@ -79,7 +80,9 @@ inline ImpreciseValue *SimulationResult::getAvgPhotons(
 		FLOAT_TYPE temp[basisSize];
 		cblas_copy(samplesNumber, meanPhotonNumbers, NO_INC, temp, NO_INC);
 		cblas_scal(samplesNumber, 2.0 * meanPhotonsNumber, temp, NO_INC);
-		FLOAT_TYPE sum2 = cblas_asum(samplesNumber, temp, NO_INC);
+
+		FLOAT_TYPE sum2;
+		ippsSum_f(temp, samplesNumber, &sum2);
 
 		//(a^2 + b^2 - 2 a b)
 		FLOAT_TYPE sum = std::abs(

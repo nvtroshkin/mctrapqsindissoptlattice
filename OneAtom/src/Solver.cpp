@@ -13,8 +13,9 @@
 #include <Solver.h>
 #include <eval-params.h>
 
-#if defined(DEBUG_MODE) || defined(DEBUG_JUMPS)
+#if defined(DEBUG_CONTINUOUS) || defined(DEBUG_JUMPS)
 #include <utilities.h>
+#define LOG_IF_APPROPRIATE(a) if(shouldPrintDebugInfo) (a)
 #endif
 
 using std::endl;
@@ -96,9 +97,9 @@ void Solver::solve(std::ostream &consoleStream,
 
 	//Calculate each sample by the time axis
 	for (int i = 0; i < timeStepsNumber; ++i) {
-
-#ifdef DEBUG_MODE
-		consoleStream << "Solver: step " << i << endl;
+#if defined(DEBUG_CONTINUOUS) || defined(DEBUG_JUMPS)
+		shouldPrintDebugInfo = (i % TIME_STEPS_BETWEEN_DEBUG == 0);
+		LOG_IF_APPROPRIATE(consoleStream << "Solver: step " << i << endl);
 #endif
 
 		//Before the next jump there is deterministic evolution guided by
@@ -118,18 +119,29 @@ void Solver::solve(std::ostream &consoleStream,
 		//try a self-written norm?
 		complex_cblas_dotc_sub(basisSize, curState, NO_INC, curState, NO_INC,
 				&norm2);
-		if (svNormThreshold > norm2.real) {
+
 #ifdef DEBUG_JUMPS
-			consoleStream << "jump at step: " << i << endl;
-			consoleStream << "vector norm: " << norm2.real << endl;
-			print(consoleStream, "vector: ", curState, basisSize);
+		LOG_IF_APPROPRIATE(
+				consoleStream << "Norm: threshold = " << svNormThreshold
+						<< ", current = " << norm2.real << endl);
 #endif
 
-			makeJump(consoleStream, svNormThreshold, prevState, curState);
+		if (svNormThreshold > norm2.real) {
+#ifdef DEBUG_JUMPS
+			consoleStream << "Jump" << endl;
+			consoleStream << "Step: " << i << endl;
+			consoleStream << "Norm^2: threshold = " << svNormThreshold
+					<< ", current = " << norm2.real << endl;
+#endif
+
+			makeJump(consoleStream, prevState, curState);
+
+			//update the random time
+			svNormThreshold = nextRandom();
 
 #ifdef DEBUG_JUMPS
-			print(consoleStream, "vector after jump and normalization: ",
-					curState, basisSize);
+			consoleStream << "New norm^2 threshold = " << svNormThreshold
+					<< endl;
 #endif
 		}
 
@@ -143,8 +155,8 @@ void Solver::solve(std::ostream &consoleStream,
 	curState = prevState;
 	prevState = tempPointer;
 
-#ifdef DEBUG_MODE
-	print(consoleStream, "Psi(n+1): ", curState, basisSize);
+#ifdef DEBUG_CONTINUOUS
+	LOG_IF_APPROPRIATE(print(consoleStream, "Psi(n+1)", curState, basisSize));
 #endif
 
 	//final state normalization
@@ -155,8 +167,8 @@ void Solver::solve(std::ostream &consoleStream,
 		throw "No more random numbers";
 	}
 
-#ifdef DEBUG_MODE
-	print(consoleStream, "Normed Psi(n+1): ", curState, basisSize);
+#ifdef DEBUG_CONTINUOUS
+	LOG_IF_APPROPRIATE(print(consoleStream, "Normed Psi(n+1)", curState, basisSize));
 #endif
 
 	//write results out
@@ -173,8 +185,8 @@ inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream,
 	complex_mkl_cspblas_csrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
 			HCSR3Columns, prevState, k1);
 
-#ifdef DEBUG_MODE
-	print(consoleStream, "k1: ", k1, basisSize);
+#ifdef DEBUG_CONTINUOUS
+	LOG_IF_APPROPRIATE(print(consoleStream, "k1", k1, basisSize));
 #endif
 
 	//copy current state to a temporary vector
@@ -185,8 +197,8 @@ inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream,
 	complex_mkl_cspblas_csrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
 			HCSR3Columns, curState, k2);
 
-#ifdef DEBUG_MODE
-	print(consoleStream, "k2: ", k2, basisSize);
+#ifdef DEBUG_CONTINUOUS
+	LOG_IF_APPROPRIATE(print(consoleStream, "k2", k2, basisSize));
 #endif
 
 	//same but with another temporary vector for the buffer
@@ -197,8 +209,8 @@ inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream,
 	complex_mkl_cspblas_csrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
 			HCSR3Columns, curState, k3);
 
-#ifdef DEBUG_MODE
-	print(consoleStream, "k3: ", k3, basisSize);
+#ifdef DEBUG_CONTINUOUS
+	LOG_IF_APPROPRIATE(print(consoleStream, "k3", k3, basisSize));
 #endif
 
 	complex_cblas_copy(basisSize, prevState, NO_INC, curState, NO_INC);
@@ -207,8 +219,8 @@ inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream,
 	complex_mkl_cspblas_csrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
 			HCSR3Columns, curState, k4);
 
-#ifdef DEBUG_MODE
-	print(consoleStream, "k4: ", k4, basisSize);
+#ifdef DEBUG_CONTINUOUS
+	LOG_IF_APPROPRIATE(print(consoleStream, "k4", k4, basisSize));
 #endif
 
 	//store to k1
@@ -247,11 +259,16 @@ inline void Solver::normalizeVector(COMPLEX_TYPE *stateVector,
 }
 
 inline void Solver::makeJump(std::ostream &consoleStream,
-FLOAT_TYPE &svNormThreshold, COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
+		COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
 	//then a jump is occurred between t(i) and t(i+1)
 	//let's suppose it was at time t(i)
 
+#ifdef DEBUG_JUMPS
+	print(consoleStream, "State at the jump moment", prevState, basisSize);
+#endif
+
 	//calculate vectors and their norms after each type of jump
+	//the jump is made from the previous step state
 	//(in the first cavity or in the second)
 	complex_mkl_cspblas_csrgemv("n", &basisSize, a1CSR3->values,
 			a1CSR3->rowIndex, a1CSR3->columns, prevState, k1);
@@ -262,19 +279,40 @@ FLOAT_TYPE &svNormThreshold, COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
 	complex_cblas_dotc_sub(basisSize, k2, NO_INC, k2, NO_INC, &n22);
 
 	//calculate probabilities of each jump
-	FLOAT_TYPE p1 = n12.real / n12.real + n22.real;
+	FLOAT_TYPE p1 = n12.real / (n12.real + n22.real);
+
+#ifdef DEBUG_JUMPS
+	print(consoleStream, "If jump will be in the first cavity", k1, basisSize);
+	consoleStream << "it's norm^2: " << n12.real << endl;
+
+	print(consoleStream, "If jump will be in the second cavity", k2, basisSize);
+	consoleStream << "it's norm^2: " << n22.real << endl;
+
+	consoleStream << "Probabilities of the jumps: first = " << p1
+			<< ", second = " << 1 - p1 << endl;
+#endif
 
 	//choose which jump is occurred,
 	if (nextRandom() > p1) {
+#ifdef DEBUG_JUMPS
+		consoleStream << "It jumped in the SECOND cavity" << endl;
+#endif
+
 		//a jump occurred in the second cavity
-		normalizeVector(k1, n12, curState);
-	} else {
-		// in the first
 		normalizeVector(k2, n22, curState);
+	} else {
+#ifdef DEBUG_JUMPS
+		consoleStream << "Jumped in the FIRST cavity" << endl;
+#endif
+
+		// in the first
+		normalizeVector(k1, n12, curState);
 	}
 
-	//update the random time
-	svNormThreshold = nextRandom();
+#ifdef DEBUG_JUMPS
+	print(consoleStream, "State vector after the jump and normalization",
+			curState, basisSize);
+#endif
 }
 
 inline FLOAT_TYPE Solver::nextRandom() {

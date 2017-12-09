@@ -33,8 +33,8 @@ public:
 			Model &model);
 	~SimulationResult();
 
-	ImpreciseValue *getAvgFirstCavityPhotons() const;
-	ImpreciseValue *getAvgSecondCavityPhotons() const;
+	ImpreciseValue *getFirstCavityPhotons() const;
+	ImpreciseValue *getSecondCavityPhotons() const;
 };
 
 #endif /* SRC_INCLUDE_SIMULATIONRESULT_H_ */

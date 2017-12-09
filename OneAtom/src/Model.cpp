@@ -101,7 +101,8 @@ inline COMPLEX_TYPE Model::L(int i, int j) const {
 		summands[k] = a1Plus(i, k) * a1(k, j) + a2Plus(i, k) * a2(k, j);
 	}
 
-	FLOAT_TYPE real = cblas_asum(basisSize, summands, NO_INC);
+	FLOAT_TYPE real;
+	ippsSum_f(summands, basisSize, &real);
 
 	// L.imagine = -H
 	return {-kappa * real, -H(i,j)};
@@ -115,7 +116,7 @@ inline FLOAT_TYPE Model::H(int i, int j) const {
 						+ sigma1Plus(i, k) * sigma1Minus(k, j)
 						+ a2Plus(i, k) * a2(k, j)
 						+ sigma2Plus(i, k) * sigma2Minus(k, j))
-				+ J * (a1Plus(i, k) * a2(k, j) + a2Plus(i, k) * a2(k, j))
+				- J * (a1Plus(i, k) * a2(k, j) + a2Plus(i, k) * a1(k, j))
 				+ g
 						* (a1(i, k) * sigma1Plus(k, j)
 								+ a1Plus(i, k) * sigma1Minus(k, j)
@@ -126,7 +127,10 @@ inline FLOAT_TYPE Model::H(int i, int j) const {
 	summands[basisSize] = scE
 			* (a1Plus(i, j) + a1(i, j) + a2Plus(i, j) + a2(i, j));
 
-	return cblas_asum(basisSize + 1, summands, NO_INC);
+	FLOAT_TYPE result;
+	ippsSum_f(summands, basisSize+1, &result);
+
+	return result;
 }
 
 inline CSR3Matrix *Model::createCSR3Matrix(CalcElemFuncP f) const {

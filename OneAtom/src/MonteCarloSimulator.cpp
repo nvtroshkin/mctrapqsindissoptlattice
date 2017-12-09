@@ -64,7 +64,7 @@ FLOAT_TYPE timeStep, int nTimeSteps) {
 		for (int sampleIndex = 0; sampleIndex < samplesNumber; sampleIndex++) {
 			solver.solve(consoleStream, groundState, result[sampleIndex]);
 #ifdef PRINT_PROGRESS
-			if (progress % NOTIFY_EACH_N_SAMPLES == 0) {
+			if (progress % SAMPLES_BETWEEN_PROGRESS == 0) {
 				consoleStream
 						<< "Progress: "
 								+ std::to_string(

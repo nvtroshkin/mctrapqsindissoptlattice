@@ -14,27 +14,28 @@ int main(int argc, char **argv) {
 	auto start = chrono::steady_clock::now();
 
 	try {
+
 		Model model(ATOM_1_LEVELS_NUMBER, ATOM_2_LEVELS_NUMBER,
 				FIELD_1_FOCK_STATES_NUMBER, FIELD_2_FOCK_STATES_NUMBER, KAPPA,
 				DELTA_OMEGA, G, scE, J);
 		RndNumProviderImpl rndNumProvider(RANDSEED, THREADS_NUM);
 		MonteCarloSimulator monteCarloSimulator(MONTE_CARLO_SAMPLES_NUMBER,
-				THREADS_NUM, model, rndNumProvider);
+		THREADS_NUM, model, rndNumProvider);
 
 		SimulationResult *result = monteCarloSimulator.simulate(cout,
 				TIME_STEP_SIZE, TIME_STEPS_NUMBER);
 
-		ImpreciseValue *avgFirstCavityPhotons =
-				result->getAvgFirstCavityPhotons();
+		ImpreciseValue *firstCavityPhotons =
+				result->getFirstCavityPhotons();
 		cout << "Avg field photons in the first cavity: "
-				<< avgFirstCavityPhotons->mean << "; standard deviation: "
-				<< avgFirstCavityPhotons->standardDeviation << endl;
+				<< firstCavityPhotons->mean << "; standard deviation: "
+				<< firstCavityPhotons->standardDeviation << endl;
 
-		ImpreciseValue *avgSecondCavityPhotons =
-				result->getAvgSecondCavityPhotons();
+		ImpreciseValue *secondCavityPhotons =
+				result->getSecondCavityPhotons();
 		cout << "Avg field photons in the second cavity: "
-				<< avgSecondCavityPhotons->mean << "; standard deviation: "
-				<< avgSecondCavityPhotons->standardDeviation << endl;
+				<< secondCavityPhotons->mean << "; standard deviation: "
+				<< secondCavityPhotons->standardDeviation << endl;
 
 		//freeing up resources
 		delete result;

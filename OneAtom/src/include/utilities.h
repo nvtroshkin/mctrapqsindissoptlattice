@@ -19,4 +19,28 @@
 void print(std::ostream &os, const char title[], const COMPLEX_TYPE array[],
 		int arraySize);
 
+/**
+ * Prints a matrix:
+ *
+ * "title:
+ * {
+ *   { v1, v2, v3, },
+ *   { ... },
+ * }"
+ */
+void print(std::ostream &os, const char title[], const COMPLEX_TYPE **array,
+		int width, int height);
+
+/**
+ * Prints a matrix:
+ *
+ * "title:
+ * {
+ *   { v1, v2, v3, },
+ *   { ... },
+ * }"
+ */
+void print(std::ostream &os, const char title[], const COMPLEX_TYPE *array,
+		int width, int height);
+
 #endif /* SRC_INCLUDE_UTILITIES_H_ */

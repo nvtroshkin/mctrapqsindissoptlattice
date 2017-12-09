@@ -44,6 +44,10 @@ class Solver {
 
 	COMPLEX_TYPE *k1, *k2, *k3, *k4, *tempVector, *prevState, *curState;
 
+#if defined(DEBUG_CONTINUOUS) || defined(DEBUG_JUMPS)
+	bool shouldPrintDebugInfo = false;
+#endif
+
 	//random numbers
 	int rndNumIndex;	//indicates where we are in the buffer
 	FLOAT_TYPE *rndNumBuff;
@@ -70,8 +74,8 @@ public:
 
 	void normalizeVector(COMPLEX_TYPE *stateVector);
 
-	void makeJump(std::ostream &consoleStream, FLOAT_TYPE &svNormThreshold,
-	COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState);
+	void makeJump(std::ostream &consoleStream, COMPLEX_TYPE *prevState,
+			COMPLEX_TYPE *curState);
 };
 
 #endif /* SRC_INCLUDE_SOLVER_H_ */
