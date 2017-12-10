@@ -21,6 +21,12 @@ static const int SAMPLES_BETWEEN_PROGRESS = 10;
  */
 #define THREADS_NUM 4
 
+/**
+ * Consider H as a sparse matrix
+ * (don't know whether useful or not, may be for bigger dimensions)
+ */
+//#define H_SPARSE
+
 //Evaluation of each sample is performed beginning at 0s and ending at the end time.
 //Increasing the END_TIME value is necessary to caught the stationary evaluation
 //phase

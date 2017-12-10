@@ -41,8 +41,11 @@ class Model {
 
 	CSR3Matrix *a2InCSR3;
 	CSR3Matrix *a2PlusInCSR3;
-
+#ifdef H_SPARSE
 	CSR3Matrix *lInCSR3;
+#else
+	COMPLEX_TYPE *l;
+#endif
 
 	//The basis vectors are enumerated flatly, |photon number>|atom state>,
 	//|0>|0>, |0>|1> and etc.
@@ -56,6 +59,8 @@ class Model {
 	COMPLEX_TYPE a2Complex(int i, int j) const;
 
 	CSR3Matrix *createCSR3Matrix(CalcElemFuncP f) const;
+
+	COMPLEX_TYPE *createMatrix(CalcElemFuncP f) const;
 
 	CSR3Matrix *createA1InCSR3();
 	CSR3Matrix *createA1PlusInCSR3();
@@ -128,11 +133,19 @@ public:
 	 */
 	CSR3Matrix *getA2PlusInCSR3() const;
 
+#ifdef H_SPARSE
 	/**
 	 * A CSR3 representation of the Shroedinger's equation right part operator (L):
 	 * dPsi/dt = L Psi.
 	 */
 	CSR3Matrix *getLInCSR3() const;
+#else
+	/**
+	 * Matrix representation of the Shroedinger's equation right part operator (L):
+	 * dPsi/dt = L Psi.
+	 */
+	COMPLEX_TYPE *getL() const;
+#endif
 
 	/**
 	 * Returns the photon number of the field in the 1st cavity
@@ -180,9 +193,15 @@ inline CSR3Matrix *Model::getA2PlusInCSR3() const {
 	return a2PlusInCSR3;
 }
 
+#ifdef H_SPARSE
 inline CSR3Matrix *Model::getLInCSR3() const {
 	return lInCSR3;
 }
+#else
+inline COMPLEX_TYPE *Model::getL() const {
+	return l;
+}
+#endif
 
 inline int Model::n1(int stateIndex) const {
 	return stateIndex / (atom1SSize * subs2Size);

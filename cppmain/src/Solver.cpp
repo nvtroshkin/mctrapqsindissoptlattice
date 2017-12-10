@@ -24,12 +24,19 @@ Solver::Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
 		RndNumProvider &rndNumProvider) :
 		id(id), complexTHalfStep( { 0.5 * timeStep, 0.0 }), complexTStep( {
 				timeStep, 0.0 }), complexTSixthStep( { timeStep / 6.0, 0.0 }), complexTwo(
-				{ 2.0, 0.0 }), complexOne( { 1.0, 0.0 }), basisSize(
-				model.getBasisSize()), timeStepsNumber(timeStepsNumber), lCSR3(
-				model.getLInCSR3()), a1CSR3(model.getA1InCSR3()), a1PlusCSR3(
-				model.getA1PlusInCSR3()), a2CSR3(model.getA2InCSR3()), a2PlusCSR3(
-				model.getA2PlusInCSR3()), rndNumProvider(rndNumProvider), rndNumIndex(
-				0) {
+				{ 2.0, 0.0 }), complexOne( { 1.0, 0.0 }), complexZero( { 0.0,
+				0.0 }), basisSize(model.getBasisSize()), timeStepsNumber(
+				timeStepsNumber),
+#ifdef H_SPARSE
+				lCSR3(
+						model.getLInCSR3())
+#else
+				l(model.getL())
+#endif
+						, a1CSR3(model.getA1InCSR3()), a1PlusCSR3(
+						model.getA1PlusInCSR3()), a2CSR3(model.getA2InCSR3()), a2PlusCSR3(
+						model.getA2PlusInCSR3()), rndNumProvider(
+						rndNumProvider), rndNumIndex(0) {
 	zeroVector = new COMPLEX_TYPE[basisSize];
 	for (int i = 0; i < basisSize; ++i) {
 		zeroVector[i].real = 0.0;
@@ -109,8 +116,7 @@ void Solver::solve(std::ostream &consoleStream,
 		//at t(i+1)...
 		//write the f function
 
-		make4thOrderRungeKuttaStep(consoleStream, lCSR3->values,
-				lCSR3->rowIndex, lCSR3->columns);
+		make4thOrderRungeKuttaStep(consoleStream);
 
 		//...falls below the threshold, which is a random number
 		//uniformly distributed between [0,1] - svNormThreshold
@@ -175,15 +181,12 @@ void Solver::solve(std::ostream &consoleStream,
 	complex_cblas_copy(basisSize, curState, NO_INC, resultState, NO_INC);
 }
 
-inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream,
-		const COMPLEX_TYPE *HCSR3Values, const int *HCSR3RowIndex,
-		const int *HCSR3Columns) {
+inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream) {
 	//uses nextState as a temporary storage vector
 
 	//k1 = f(t, sample[i]);
 	//to k1
-	complex_mkl_cspblas_csrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
-			HCSR3Columns, prevState, k1);
+	multLOnVector(prevState, k1);
 
 #ifdef DEBUG_CONTINUOUS
 	LOG_IF_APPROPRIATE(print(consoleStream, "k1", k1, basisSize));
@@ -194,8 +197,7 @@ inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream,
 	complex_cblas_axpy(basisSize, &complexTHalfStep, k1, NO_INC, curState,
 			NO_INC);
 	//k2 = f(t + T_STEP_SIZE / 2.0f, VECTOR_BUFF[1]);
-	complex_mkl_cspblas_csrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
-			HCSR3Columns, curState, k2);
+	multLOnVector(curState, k2);
 
 #ifdef DEBUG_CONTINUOUS
 	LOG_IF_APPROPRIATE(print(consoleStream, "k2", k2, basisSize));
@@ -206,8 +208,7 @@ inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream,
 	complex_cblas_axpy(basisSize, &complexTHalfStep, k2, NO_INC, curState,
 			NO_INC);
 	//k3 = f(t + T_STEP_SIZE / 2.0f, VECTOR_BUFF[2])
-	complex_mkl_cspblas_csrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
-			HCSR3Columns, curState, k3);
+	multLOnVector(curState, k3);
 
 #ifdef DEBUG_CONTINUOUS
 	LOG_IF_APPROPRIATE(print(consoleStream, "k3", k3, basisSize));
@@ -216,8 +217,7 @@ inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream,
 	complex_cblas_copy(basisSize, prevState, NO_INC, curState, NO_INC);
 	complex_cblas_axpy(basisSize, &complexTStep, k3, NO_INC, curState, NO_INC);
 	//k4 = f(t + T_STEP_SIZE, VECTOR_BUFF[3]);
-	complex_mkl_cspblas_csrgemv("n", &basisSize, HCSR3Values, HCSR3RowIndex,
-			HCSR3Columns, curState, k4);
+	multLOnVector(curState, k4);
 
 #ifdef DEBUG_CONTINUOUS
 	LOG_IF_APPROPRIATE(print(consoleStream, "k4", k4, basisSize));
@@ -235,14 +235,24 @@ inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream,
 			NO_INC);
 }
 
+inline void Solver::multLOnVector(COMPLEX_TYPE *vector, COMPLEX_TYPE *result) {
+#ifdef H_SPARSE
+	complex_mkl_cspblas_csrgemv("n", &basisSize, lCSR3->values, lCSR3->rowIndex,
+			lCSR3->columns, vector, result);
+#else
+	complex_mkl_cblas_gemv(CblasRowMajor, CblasNoTrans, basisSize, basisSize,
+			&complexOne, l, basisSize, vector, NO_INC, &complexZero, result, NO_INC);
+#endif
+}
+
 inline void Solver::normalizeVector(COMPLEX_TYPE *stateVector) {
-	//calculate new norm
+//calculate new norm
 	complex_cblas_dotc_sub(basisSize, stateVector, NO_INC, stateVector, NO_INC,
 			&norm2);
 
 	normalizeVector(stateVector, norm2, tempVector);
 
-	//write back
+//write back
 	complex_cblas_copy(basisSize, tempVector, NO_INC, stateVector, NO_INC);
 }
 
@@ -260,16 +270,16 @@ inline void Solver::normalizeVector(COMPLEX_TYPE *stateVector,
 
 inline void Solver::makeJump(std::ostream &consoleStream,
 COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
-	//then a jump is occurred between t(i) and t(i+1)
-	//let's suppose it was at time t(i)
+//then a jump is occurred between t(i) and t(i+1)
+//let's suppose it was at time t(i)
 
 #ifdef DEBUG_JUMPS
 	print(consoleStream, "State at the jump moment", prevState, basisSize);
 #endif
 
-	//calculate vectors and their norms after each type of jump
-	//the jump is made from the previous step state
-	//(in the first cavity or in the second)
+//calculate vectors and their norms after each type of jump
+//the jump is made from the previous step state
+//(in the first cavity or in the second)
 	complex_mkl_cspblas_csrgemv("n", &basisSize, a1CSR3->values,
 			a1CSR3->rowIndex, a1CSR3->columns, prevState, k1);
 	complex_cblas_dotc_sub(basisSize, k1, NO_INC, k1, NO_INC, &n12);
@@ -278,7 +288,7 @@ COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
 			a2CSR3->rowIndex, a2CSR3->columns, prevState, k2);
 	complex_cblas_dotc_sub(basisSize, k2, NO_INC, k2, NO_INC, &n22);
 
-	//calculate probabilities of each jump
+//calculate probabilities of each jump
 	FLOAT_TYPE p1 = n12.real / (n12.real + n22.real);
 
 #ifdef DEBUG_JUMPS
@@ -292,7 +302,7 @@ COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
 	<< ", second = " << 1 - p1 << endl;
 #endif
 
-	//choose which jump is occurred,
+//choose which jump is occurred,
 	if (nextRandom() > p1) {
 #ifdef DEBUG_JUMPS
 		consoleStream << "It jumped in the SECOND cavity" << endl;
@@ -316,7 +326,7 @@ COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
 }
 
 inline FLOAT_TYPE Solver::nextRandom() {
-	//check whether there are random numbers left
+//check whether there are random numbers left
 	if (rndNumIndex == RND_NUM_BUFF_SIZE) {
 		rndNumProvider.initBuffer(id, rndNumBuff, RND_NUM_BUFF_SIZE);
 		rndNumIndex = 0;

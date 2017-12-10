@@ -32,7 +32,11 @@ FLOAT_TYPE scE, FLOAT_TYPE J) :
 	a2InCSR3 = createCSR3Matrix(&Model::a2Complex);
 	a2PlusInCSR3 = createCSR3Matrix(&Model::a2PlusComplex);
 
+#ifdef H_SPARSE
 	lInCSR3 = createCSR3Matrix(&Model::L);
+#else
+	l = createMatrix(&Model::L);
+#endif
 }
 
 Model::~Model() {
@@ -41,7 +45,12 @@ Model::~Model() {
 	delete a1PlusInCSR3;
 	delete a2InCSR3;
 	delete a2PlusInCSR3;
+
+#ifdef H_SPARSE
 	delete lInCSR3;
+#else
+	delete[] l;
+#endif
 }
 
 inline FLOAT_TYPE Model::a1Plus(int i, int j) const {
@@ -128,7 +137,7 @@ inline FLOAT_TYPE Model::H(int i, int j) const {
 			* (a1Plus(i, j) + a1(i, j) + a2Plus(i, j) + a2(i, j));
 
 	FLOAT_TYPE result;
-	ippsSum_f(summands, basisSize+1, &result);
+	ippsSum_f(summands, basisSize + 1, &result);
 
 	return result;
 }
@@ -136,13 +145,7 @@ inline FLOAT_TYPE Model::H(int i, int j) const {
 inline CSR3Matrix *Model::createCSR3Matrix(CalcElemFuncP f) const {
 
 	int totalValuesNumber = basisSize * basisSize;
-
-	COMPLEX_TYPE denseMatrix[totalValuesNumber];
-	for (int i = 0; i < basisSize; ++i) {
-		for (int j = 0; j < basisSize; ++j) {
-			denseMatrix[i * basisSize + j] = (this->*f)(i, j);
-		}
-	}
+	COMPLEX_TYPE *denseMatrix = createMatrix(f);
 
 	int job[] = { //
 			0, // to CSR
@@ -162,4 +165,15 @@ inline CSR3Matrix *Model::createCSR3Matrix(CalcElemFuncP f) const {
 			&info);
 
 	return csr3Matrix;
+}
+
+inline COMPLEX_TYPE *Model::createMatrix(CalcElemFuncP f) const {
+	COMPLEX_TYPE *denseMatrix = new COMPLEX_TYPE[basisSize * basisSize];
+	for (int i = 0; i < basisSize; ++i) {
+		for (int j = 0; j < basisSize; ++j) {
+			denseMatrix[i * basisSize + j] = (this->*f)(i, j);
+		}
+	}
+
+	return denseMatrix;
 }
