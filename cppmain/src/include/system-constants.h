@@ -16,6 +16,7 @@
  */
 static const MKL_INT ATOM_1_LEVELS_NUMBER = 2;
 static const MKL_INT ATOM_2_LEVELS_NUMBER = 2;
+static const MKL_INT ATOM_3_LEVELS_NUMBER = 2;
 
 /**
  * Because there are infinite number of Fock states for a field,
@@ -24,6 +25,7 @@ static const MKL_INT ATOM_2_LEVELS_NUMBER = 2;
  */
 static const MKL_INT FIELD_1_FOCK_STATES_NUMBER = 2;
 static const MKL_INT FIELD_2_FOCK_STATES_NUMBER = 2;
+static const MKL_INT FIELD_3_FOCK_STATES_NUMBER = 2;
 
 //Parameters of the system
 static const FLOAT_TYPE KAPPA = 1.0;

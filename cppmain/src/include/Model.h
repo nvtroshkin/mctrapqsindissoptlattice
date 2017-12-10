@@ -26,6 +26,10 @@ class Model {
 	const MKL_INT field2SSize;
 	const MKL_INT subs2Size;
 
+	const MKL_INT atom3SSize;
+	const MKL_INT field3SSize;
+	const MKL_INT subs3Size;
+
 	const MKL_INT basisSize;
 
 	const FLOAT_TYPE kappa;
@@ -42,6 +46,9 @@ class Model {
 
 	CSR3Matrix *a2InCSR3;
 	CSR3Matrix *a2PlusInCSR3;
+
+	CSR3Matrix *a3InCSR3;
+	CSR3Matrix *a3PlusInCSR3;
 #ifdef H_SPARSE
 	CSR3Matrix *lInCSR3;
 #else
@@ -59,6 +66,10 @@ class Model {
 
 	COMPLEX_TYPE a2Complex(int i, int j) const;
 
+	COMPLEX_TYPE a3PlusComplex(int i, int j) const;
+
+	COMPLEX_TYPE a3Complex(int i, int j) const;
+
 	CSR3Matrix *createCSR3Matrix(CalcElemFuncP f, std::string matrixName) const;
 
 	COMPLEX_TYPE *createMatrix(CalcElemFuncP f, std::string matrixName) const;
@@ -69,11 +80,15 @@ class Model {
 	CSR3Matrix *createA2InCSR3();
 	CSR3Matrix *createA2PlusInCSR3();
 
+	CSR3Matrix *createA3InCSR3();
+	CSR3Matrix *createA3PlusInCSR3();
+
 	CSR3Matrix *createLInCSR3();
 
 public:
-	Model(MKL_INT atom1SSize, MKL_INT atom2SSize, MKL_INT field1SSize,
-	MKL_INT field2SSize,
+	Model(MKL_INT atom1SSize, MKL_INT atom2SSize, MKL_INT atom3SSize,
+	MKL_INT field1SSize,
+	MKL_INT field2SSize, MKL_INT field3SSize,
 	FLOAT_TYPE kappa, FLOAT_TYPE deltaOmega, FLOAT_TYPE g,
 	FLOAT_TYPE scE, FLOAT_TYPE J);
 
@@ -96,6 +111,14 @@ public:
 	FLOAT_TYPE sigma2Plus(int i, int j) const;
 
 	FLOAT_TYPE sigma2Minus(int i, int j) const;
+
+	FLOAT_TYPE a3Plus(int i, int j) const;
+
+	FLOAT_TYPE a3(int i, int j) const;
+
+	FLOAT_TYPE sigma3Plus(int i, int j) const;
+
+	FLOAT_TYPE sigma3Minus(int i, int j) const;
 
 	/**
 	 * -i*Hhat, Hhat is defined by exp. (7.11), Petruchionne p363
@@ -134,6 +157,16 @@ public:
 	 */
 	CSR3Matrix *getA2PlusInCSR3() const;
 
+	/**
+	 * A CSR3 representation of the A3 operator
+	 */
+	CSR3Matrix *getA3InCSR3() const;
+
+	/**
+	 * A CSR3 representation of the A3+ operator
+	 */
+	CSR3Matrix *getA3PlusInCSR3() const;
+
 #ifdef H_SPARSE
 	/**
 	 * A CSR3 representation of the Shroedinger's equation right part operator (L):
@@ -171,6 +204,17 @@ public:
 	int s2(int stateIndex) const;
 
 	/**
+	 * Returns the photon number of the field in the 3rd cavity
+	 * corresponding to a state
+	 */
+	int n3(int stateIndex) const;
+
+	/**
+	 * Returns the atom 3 level number corresponding to a state
+	 */
+	int s3(int stateIndex) const;
+
+	/**
 	 * Returns size of the whole basis
 	 */
 	MKL_INT getBasisSize() const;
@@ -194,6 +238,14 @@ inline CSR3Matrix *Model::getA2PlusInCSR3() const {
 	return a2PlusInCSR3;
 }
 
+inline CSR3Matrix *Model::getA3InCSR3() const {
+	return a3InCSR3;
+}
+
+inline CSR3Matrix *Model::getA3PlusInCSR3() const {
+	return a3PlusInCSR3;
+}
+
 #ifdef H_SPARSE
 inline CSR3Matrix *Model::getLInCSR3() const {
 	return lInCSR3;
@@ -205,19 +257,27 @@ inline COMPLEX_TYPE *Model::getL() const {
 #endif
 
 inline int Model::n1(int stateIndex) const {
-	return stateIndex / (atom1SSize * subs2Size);
+	return stateIndex / (atom1SSize * subs2Size * subs3Size);
 }
 
 inline int Model::s1(int stateIndex) const {
-	return (stateIndex / subs2Size) % atom1SSize;
+	return (stateIndex / (subs2Size * subs3Size)) % atom1SSize;
 }
 
 inline int Model::n2(int stateIndex) const {
-	return (stateIndex % subs1Size) / atom2SSize;
+	return (stateIndex / (atom2SSize * subs3Size)) % field2SSize;
 }
 
 inline int Model::s2(int stateIndex) const {
-	return (stateIndex % subs1Size) % atom2SSize;
+	return (stateIndex / subs3Size) % atom2SSize;
+}
+
+inline int Model::n3(int stateIndex) const {
+	return (stateIndex / atom3SSize) % field3SSize;
+}
+
+inline int Model::s3(int stateIndex) const {
+	return stateIndex % atom3SSize;
 }
 
 inline MKL_INT Model::getBasisSize() const {

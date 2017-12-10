@@ -35,7 +35,8 @@ Solver::Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
 #endif
 						, a1CSR3(model.getA1InCSR3()), a1PlusCSR3(
 						model.getA1PlusInCSR3()), a2CSR3(model.getA2InCSR3()), a2PlusCSR3(
-						model.getA2PlusInCSR3()), rndNumProvider(
+						model.getA2PlusInCSR3()), a3CSR3(model.getA3InCSR3()), a3PlusCSR3(
+						model.getA3PlusInCSR3()), rndNumProvider(
 						rndNumProvider), rndNumIndex(0) {
 	zeroVector = new COMPLEX_TYPE[basisSize];
 	for (int i = 0; i < basisSize; ++i) {
@@ -241,7 +242,8 @@ inline void Solver::multLOnVector(COMPLEX_TYPE *vector, COMPLEX_TYPE *result) {
 			lCSR3->columns, vector, result);
 #else
 	complex_mkl_cblas_gemv(CblasRowMajor, CblasNoTrans, basisSize, basisSize,
-			&complexOne, l, basisSize, vector, NO_INC, &complexZero, result, NO_INC);
+			&complexOne, l, basisSize, vector, NO_INC, &complexZero, result,
+			NO_INC);
 #endif
 }
 
@@ -279,7 +281,7 @@ COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
 
 //calculate vectors and their norms after each type of jump
 //the jump is made from the previous step state
-//(in the first cavity or in the second)
+//(in the first cavity, in the second or in the third)
 	complex_mkl_cspblas_csrgemv("n", &basisSize, a1CSR3->values,
 			a1CSR3->rowIndex, a1CSR3->columns, prevState, k1);
 	complex_cblas_dotc_sub(basisSize, k1, NO_INC, k1, NO_INC, &n12);
@@ -288,8 +290,14 @@ COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
 			a2CSR3->rowIndex, a2CSR3->columns, prevState, k2);
 	complex_cblas_dotc_sub(basisSize, k2, NO_INC, k2, NO_INC, &n22);
 
+	complex_mkl_cspblas_csrgemv("n", &basisSize, a3CSR3->values,
+			a3CSR3->rowIndex, a3CSR3->columns, prevState, k3);
+	complex_cblas_dotc_sub(basisSize, k3, NO_INC, k3, NO_INC, &n32);
+
 //calculate probabilities of each jump
-	FLOAT_TYPE p1 = n12.real / (n12.real + n22.real);
+	FLOAT_TYPE n2Sum = n12.real + n22.real + n32.real;
+	FLOAT_TYPE p1 = n12.real / n2Sum;
+	FLOAT_TYPE p12 = p1 + n22.real / n2Sum; //two first cavities together
 
 #ifdef DEBUG_JUMPS
 	print(consoleStream, "If jump will be in the first cavity", k1, basisSize);
@@ -298,25 +306,30 @@ COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
 	print(consoleStream, "If jump will be in the second cavity", k2, basisSize);
 	consoleStream << "it's norm^2: " << n22.real << endl;
 
-	consoleStream << "Probabilities of the jumps: first = " << p1
-	<< ", second = " << 1 - p1 << endl;
+	print(consoleStream, "If jump will be in the third cavity", k3, basisSize);
+	consoleStream << "it's norm^2: " << n32.real << endl;
+
+	consoleStream << "Probabilities of the jumps: in the first = " << p1
+	<< ", (the first + the second) = " << p12 << ", third = " << 1-p12 << endl;
 #endif
 
 //choose which jump is occurred,
-	if (nextRandom() > p1) {
+	FLOAT_TYPE rnd = nextRandom();
+	if (rnd < p1) {
 #ifdef DEBUG_JUMPS
-		consoleStream << "It jumped in the SECOND cavity" << endl;
+		consoleStream << "It jumped in the FIRST cavity" << endl;
 #endif
-
-		//a jump occurred in the second cavity
+		normalizeVector(k1, n12, curState);
+	} else if (rnd < p12) {
+#ifdef DEBUG_JUMPS
+		consoleStream << "Jumped in the SECOND cavity" << endl;
+#endif
 		normalizeVector(k2, n22, curState);
 	} else {
 #ifdef DEBUG_JUMPS
-		consoleStream << "Jumped in the FIRST cavity" << endl;
+		consoleStream << "Jumped in the THIRD cavity" << endl;
 #endif
-
-		// in the first
-		normalizeVector(k1, n12, curState);
+		normalizeVector(k3, n32, curState);
 	}
 
 #ifdef DEBUG_JUMPS

@@ -16,7 +16,8 @@ int main(int argc, char **argv) {
 	try {
 
 		Model model(ATOM_1_LEVELS_NUMBER, ATOM_2_LEVELS_NUMBER,
-				FIELD_1_FOCK_STATES_NUMBER, FIELD_2_FOCK_STATES_NUMBER, KAPPA,
+				ATOM_3_LEVELS_NUMBER, FIELD_1_FOCK_STATES_NUMBER,
+				FIELD_2_FOCK_STATES_NUMBER, FIELD_3_FOCK_STATES_NUMBER, KAPPA,
 				DELTA_OMEGA, G, scE, J);
 		RndNumProviderImpl rndNumProvider(RANDSEED, THREADS_NUM);
 		MonteCarloSimulator monteCarloSimulator(MONTE_CARLO_SAMPLES_NUMBER,
@@ -25,14 +26,12 @@ int main(int argc, char **argv) {
 		SimulationResult *result = monteCarloSimulator.simulate(cout,
 				TIME_STEP_SIZE, TIME_STEPS_NUMBER);
 
-		ImpreciseValue *firstCavityPhotons =
-				result->getFirstCavityPhotons();
+		ImpreciseValue *firstCavityPhotons = result->getFirstCavityPhotons();
 		cout << "Avg field photons in the first cavity: "
 				<< firstCavityPhotons->mean << "; standard deviation: "
 				<< firstCavityPhotons->standardDeviation << endl;
 
-		ImpreciseValue *secondCavityPhotons =
-				result->getSecondCavityPhotons();
+		ImpreciseValue *secondCavityPhotons = result->getSecondCavityPhotons();
 		cout << "Avg field photons in the second cavity: "
 				<< secondCavityPhotons->mean << "; standard deviation: "
 				<< secondCavityPhotons->standardDeviation << endl;

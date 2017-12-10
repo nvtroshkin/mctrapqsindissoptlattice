@@ -31,7 +31,7 @@ class Solver {
 	const int timeStepsNumber;
 
 	//norms
-	COMPLEX_TYPE norm2 { 1.0, 0.0 }, normReversed { 1.0, 0.0 }, n12, n22;
+	COMPLEX_TYPE norm2 { 1.0, 0.0 }, normReversed { 1.0, 0.0 }, n12, n22, n32;
 
 	//the model
 #ifdef H_SPARSE
@@ -44,6 +44,8 @@ class Solver {
 	const CSR3Matrix * const a1PlusCSR3;
 	const CSR3Matrix * const a2CSR3;
 	const CSR3Matrix * const a2PlusCSR3;
+	const CSR3Matrix * const a3CSR3;
+	const CSR3Matrix * const a3PlusCSR3;
 
 	RndNumProvider &rndNumProvider;
 
@@ -83,7 +85,7 @@ public:
 	void normalizeVector(COMPLEX_TYPE *stateVector);
 
 	void makeJump(std::ostream &consoleStream, COMPLEX_TYPE *prevState,
-			COMPLEX_TYPE *curState);
+	COMPLEX_TYPE *curState);
 };
 
 #endif /* SRC_INCLUDE_SOLVER_H_ */
