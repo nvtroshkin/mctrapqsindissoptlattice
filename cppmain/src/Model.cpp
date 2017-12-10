@@ -5,7 +5,6 @@
 
 #include <Model.h>
 #include <utilities.h>
-#include <precision-definition.h>
 #include <mkl-constants.h>
 
 Model::Model(MKL_INT atom1SSize, MKL_INT atom2SSize, MKL_INT field1SSize,
@@ -26,16 +25,16 @@ FLOAT_TYPE scE, FLOAT_TYPE J) :
 	}
 	vSqrt(maxFieldSSize, photonNumbers, sqrtsOfPhotonNumbers);
 
-	a1InCSR3 = createCSR3Matrix(&Model::a1Complex);
-	a1PlusInCSR3 = createCSR3Matrix(&Model::a1PlusComplex);
+	a1InCSR3 = createCSR3Matrix(&Model::a1Complex, "A1");
+	a1PlusInCSR3 = createCSR3Matrix(&Model::a1PlusComplex, "A1+");
 
-	a2InCSR3 = createCSR3Matrix(&Model::a2Complex);
-	a2PlusInCSR3 = createCSR3Matrix(&Model::a2PlusComplex);
+	a2InCSR3 = createCSR3Matrix(&Model::a2Complex, "A2");
+	a2PlusInCSR3 = createCSR3Matrix(&Model::a2PlusComplex, "A2Plus");
 
 #ifdef H_SPARSE
-	lInCSR3 = createCSR3Matrix(&Model::L);
+	lInCSR3 = createCSR3Matrix(&Model::L, "L");
 #else
-	l = createMatrix(&Model::L);
+	l = createMatrix(&Model::L, "L");
 #endif
 }
 
@@ -142,10 +141,11 @@ inline FLOAT_TYPE Model::H(int i, int j) const {
 	return result;
 }
 
-inline CSR3Matrix *Model::createCSR3Matrix(CalcElemFuncP f) const {
+inline CSR3Matrix *Model::createCSR3Matrix(CalcElemFuncP f,
+		std::string matrixName) const {
 
 	int totalValuesNumber = basisSize * basisSize;
-	COMPLEX_TYPE *denseMatrix = createMatrix(f);
+	COMPLEX_TYPE *denseMatrix = createMatrix(f, matrixName);
 
 	int job[] = { //
 			0, // to CSR
@@ -167,13 +167,30 @@ inline CSR3Matrix *Model::createCSR3Matrix(CalcElemFuncP f) const {
 	return csr3Matrix;
 }
 
-inline COMPLEX_TYPE *Model::createMatrix(CalcElemFuncP f) const {
-	COMPLEX_TYPE *denseMatrix = new COMPLEX_TYPE[basisSize * basisSize];
+inline COMPLEX_TYPE *Model::createMatrix(CalcElemFuncP f,
+		std::string matrixName) const {
+#ifdef CHECK_SPARSITY
+	int nonZeroCounter = 0;
+#endif
+
+	int totalElementsCount = basisSize * basisSize;
+	COMPLEX_TYPE *denseMatrix = new COMPLEX_TYPE[totalElementsCount];
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			denseMatrix[i * basisSize + j] = (this->*f)(i, j);
+#ifdef CHECK_SPARSITY
+			if (denseMatrix[i * basisSize + j].real != 0.0
+					|| denseMatrix[i * basisSize + j].imag != 0.0) {
+				++nonZeroCounter;
+			}
+#endif
 		}
 	}
+
+#ifdef CHECK_SPARSITY
+	std::cout << "DensityOf(" << matrixName << ") = "
+			<< 1.0 * nonZeroCounter / totalElementsCount << std::endl;
+#endif
 
 	return denseMatrix;
 }

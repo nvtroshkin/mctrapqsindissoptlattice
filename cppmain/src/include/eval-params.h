@@ -27,6 +27,11 @@ static const int SAMPLES_BETWEEN_PROGRESS = 10;
  */
 //#define H_SPARSE
 
+/**
+ * Print info about how dense matrices of the operators are
+ */
+#define CHECK_SPARSITY
+
 //Evaluation of each sample is performed beginning at 0s and ending at the end time.
 //Increasing the END_TIME value is necessary to caught the stationary evaluation
 //phase

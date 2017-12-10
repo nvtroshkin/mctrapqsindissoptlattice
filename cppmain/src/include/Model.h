@@ -12,6 +12,7 @@
 #include <eval-params.h>
 #include <precision-definition.h>
 #include <CSR3Matrix.h>
+#include <string>
 
 class Model {
 
@@ -58,9 +59,9 @@ class Model {
 
 	COMPLEX_TYPE a2Complex(int i, int j) const;
 
-	CSR3Matrix *createCSR3Matrix(CalcElemFuncP f) const;
+	CSR3Matrix *createCSR3Matrix(CalcElemFuncP f, std::string matrixName) const;
 
-	COMPLEX_TYPE *createMatrix(CalcElemFuncP f) const;
+	COMPLEX_TYPE *createMatrix(CalcElemFuncP f, std::string matrixName) const;
 
 	CSR3Matrix *createA1InCSR3();
 	CSR3Matrix *createA1PlusInCSR3();
