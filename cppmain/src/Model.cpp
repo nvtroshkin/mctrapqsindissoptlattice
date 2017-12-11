@@ -212,6 +212,8 @@ inline CSR3Matrix *Model::createCSR3Matrix(CalcElemFuncP f,
 			csr3Matrix->values, csr3Matrix->columns, csr3Matrix->rowIndex,
 			&info);
 
+	delete[] denseMatrix;
+
 	return csr3Matrix;
 }
 

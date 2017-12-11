@@ -25,6 +25,7 @@ class SimulationResult {
 	//caches
 	mutable ImpreciseValue *avgPhotons1 = nullptr;
 	mutable ImpreciseValue *avgPhotons2 = nullptr;
+	mutable ImpreciseValue *avgPhotons3 = nullptr;
 
 	ImpreciseValue *getAvgPhotons(PhotonNumberFuncP n) const;
 
@@ -35,6 +36,7 @@ public:
 
 	ImpreciseValue *getFirstCavityPhotons() const;
 	ImpreciseValue *getSecondCavityPhotons() const;
+	ImpreciseValue *getThirdCavityPhotons() const;
 };
 
 #endif /* SRC_INCLUDE_SIMULATIONRESULT_H_ */

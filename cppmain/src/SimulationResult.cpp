@@ -19,6 +19,7 @@ SimulationResult::SimulationResult(COMPLEX_TYPE ** const result,
 SimulationResult::~SimulationResult() {
 	delete avgPhotons1;
 	delete avgPhotons2;
+	delete avgPhotons3;
 
 	for (int i = 0; i < samplesNumber; i++) {
 		delete[] result[i];
@@ -40,6 +41,14 @@ ImpreciseValue *SimulationResult::getSecondCavityPhotons() const {
 	}
 
 	return avgPhotons2;
+}
+
+ImpreciseValue *SimulationResult::getThirdCavityPhotons() const {
+	if (avgPhotons3 == nullptr) {
+		avgPhotons3 = getAvgPhotons(&Model::n3);
+	}
+
+	return avgPhotons3;
 }
 
 inline ImpreciseValue *SimulationResult::getAvgPhotons(

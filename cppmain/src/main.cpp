@@ -14,6 +14,7 @@ int main(int argc, char **argv) {
 	auto start = chrono::steady_clock::now();
 
 	try {
+		cout.precision(10);
 
 		Model model(ATOM_1_LEVELS_NUMBER, ATOM_2_LEVELS_NUMBER,
 				ATOM_3_LEVELS_NUMBER, FIELD_1_FOCK_STATES_NUMBER,
@@ -35,6 +36,11 @@ int main(int argc, char **argv) {
 		cout << "Avg field photons in the second cavity: "
 				<< secondCavityPhotons->mean << "; standard deviation: "
 				<< secondCavityPhotons->standardDeviation << endl;
+
+		ImpreciseValue *thirdCavityPhotons = result->getThirdCavityPhotons();
+		cout << "Avg field photons in the third cavity: "
+				<< thirdCavityPhotons->mean << "; standard deviation: "
+				<< thirdCavityPhotons->standardDeviation << endl;
 
 		//freeing up resources
 		delete result;
