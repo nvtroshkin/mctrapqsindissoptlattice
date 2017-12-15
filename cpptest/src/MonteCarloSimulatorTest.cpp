@@ -34,8 +34,8 @@ TEST (MonteCarloSimulator, test) {
 	output.precision(10);
 
 	Model model(2, 2, 2, 2, 2, 2, 1.0, 20.0, 50.0, 30.0, 0.1);
-	RndNumProviderImpl rndNumProvider(777, THREADS_NUM);
-	MonteCarloSimulator monteCarloSimulator(100, THREADS_NUM, model,
+	RndNumProviderImpl rndNumProvider(777, 1);
+	MonteCarloSimulator monteCarloSimulator(100, model,
 			rndNumProvider);
 
 	SimulationResult *result = monteCarloSimulator.simulate(output, 0.00001,

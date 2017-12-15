@@ -19,7 +19,6 @@
 class MonteCarloSimulator {
 	const MKL_INT basisSize;
 	const MKL_INT samplesNumber;
-	const int nThreads;
 
 	Model &model;
 	RndNumProvider &rndNumProvider;
@@ -30,8 +29,8 @@ class MonteCarloSimulator {
 	COMPLEX_TYPE * const groundState;
 
 public:
-	MonteCarloSimulator(MKL_INT samplesNumber, int nThreads,
-			Model &model, RndNumProvider &rndNumProvider);
+	MonteCarloSimulator(MKL_INT samplesNumber, Model &model,
+			RndNumProvider &rndNumProvider);
 	~MonteCarloSimulator();
 
 	SimulationResult *simulate(std::ostream &consoleStream, FLOAT_TYPE timeStep,

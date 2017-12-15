@@ -25,10 +25,10 @@
 #include <cuda_runtime.h>
 #endif
 
-MonteCarloSimulator::MonteCarloSimulator(MKL_INT samplesNumber, int nThreads,
-		Model &model, RndNumProvider &rndNumProvider) :
-		basisSize(model.getBasisSize()), samplesNumber(samplesNumber), nThreads(
-				nThreads), model(model), rndNumProvider(rndNumProvider), zeroVector(
+MonteCarloSimulator::MonteCarloSimulator(MKL_INT samplesNumber, Model &model,
+		RndNumProvider &rndNumProvider) :
+		basisSize(model.getBasisSize()), samplesNumber(samplesNumber), model(
+				model), rndNumProvider(rndNumProvider), zeroVector(
 				new COMPLEX_TYPE[basisSize]), groundState(
 				new COMPLEX_TYPE[basisSize]) {
 	for (int i = 0; i < basisSize; ++i) {
@@ -100,47 +100,28 @@ FLOAT_TYPE timeStep, int nTimeSteps) {
 		int progress = 0;
 #endif
 
-#if THREADS_NUM > 1
-#pragma omp parallel num_threads(THREADS_NUM) private(threadId)
-		{
-			threadId = omp_get_thread_num();
-#ifdef DEBUG
-			consoleStream << "Thread " + std::to_string(threadId) + " started\n";
-#endif
-#endif
-			Solver solver(threadId, timeStep, nTimeSteps, model, rndNumProvider
+		Solver solver(threadId, timeStep, nTimeSteps, model, rndNumProvider
 #ifdef USE_GPU
-					, cublasHandle, devPtrL
+				, cublasHandle, devPtrL
 #endif
-					);
+				);
 
-#if THREADS_NUM > 1
-#pragma omp for
-#endif
-			for (int sampleIndex = 0; sampleIndex < samplesNumber;
-					sampleIndex++) {
-				solver.solve(consoleStream, groundState, result[sampleIndex]);
+		for (int sampleIndex = 0; sampleIndex < samplesNumber; sampleIndex++) {
+			solver.solve(consoleStream, groundState, result[sampleIndex]);
 #ifdef PRINT_PROGRESS
-				if (progress % SAMPLES_BETWEEN_PROGRESS == 0) {
-					consoleStream
-							<< "Progress: "
-									+ std::to_string(
-											std::lround(
-													100.0 * progress
-															/ samplesNumber))
-									+ "%\n";
-				}
-#pragma omp atomic update
-				progress++;
-#endif
+			if (progress % SAMPLES_BETWEEN_PROGRESS == 0) {
+				consoleStream
+						<< "Progress: "
+								+ std::to_string(
+										std::lround(
+												100.0 * progress
+														/ samplesNumber))
+								+ "%\n";
 			}
-
-#if THREADS_NUM > 1
-#ifdef DEBUG
-			consoleStream << "Thread: " + std::to_string(threadId) + " finished\n";
+			progress++;
 #endif
 		}
-#endif
+
 		SimulationResult *simulationResult = new SimulationResult(result,
 				samplesNumber, model);
 

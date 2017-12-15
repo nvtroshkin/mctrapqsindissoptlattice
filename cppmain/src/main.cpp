@@ -20,9 +20,8 @@ int main(int argc, char **argv) {
 				ATOM_3_LEVELS_NUMBER, FIELD_1_FOCK_STATES_NUMBER,
 				FIELD_2_FOCK_STATES_NUMBER, FIELD_3_FOCK_STATES_NUMBER, KAPPA,
 				DELTA_OMEGA, G, scE, J);
-		RndNumProviderImpl rndNumProvider(RANDSEED, THREADS_NUM);
-		MonteCarloSimulator monteCarloSimulator(MONTE_CARLO_SAMPLES_NUMBER,
-		THREADS_NUM, model, rndNumProvider);
+		RndNumProviderImpl rndNumProvider(RANDSEED, 1);
+		MonteCarloSimulator monteCarloSimulator(MONTE_CARLO_SAMPLES_NUMBER, model, rndNumProvider);
 
 		SimulationResult *result = monteCarloSimulator.simulate(cout,
 				TIME_STEP_SIZE, TIME_STEPS_NUMBER);
