@@ -20,10 +20,8 @@
 #include "include/Solver.h"
 #include "utilities.h"
 
-#ifdef USE_GPU
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
-#endif
 
 MonteCarloSimulator::MonteCarloSimulator(MKL_INT samplesNumber, Model &model,
 		RndNumProvider &rndNumProvider) :
@@ -47,7 +45,6 @@ MonteCarloSimulator::~MonteCarloSimulator() {
 
 SimulationResult *MonteCarloSimulator::simulate(std::ostream &consoleStream,
 FLOAT_TYPE timeStep, int nTimeSteps) {
-#ifdef USE_GPU
 	cublasHandle_t cublasHandle;
 	CUDA_COMPLEX_TYPE *devPtrL;
 	try {
@@ -85,7 +82,6 @@ FLOAT_TYPE timeStep, int nTimeSteps) {
 			throw std::string("CuBLAS set matrix failed:")
 					+ std::to_string(cudaStatus);
 		}
-#endif
 
 		//A storage of final states of all realizations
 		COMPLEX_TYPE ** const result = new COMPLEX_TYPE *[samplesNumber];
@@ -100,11 +96,8 @@ FLOAT_TYPE timeStep, int nTimeSteps) {
 		int progress = 0;
 #endif
 
-		Solver solver(threadId, timeStep, nTimeSteps, model, rndNumProvider
-#ifdef USE_GPU
-				, cublasHandle, devPtrL
-#endif
-				);
+		Solver solver(threadId, timeStep, nTimeSteps, model, rndNumProvider,
+				cublasHandle, devPtrL);
 
 		for (int sampleIndex = 0; sampleIndex < samplesNumber; sampleIndex++) {
 			solver.solve(consoleStream, groundState, result[sampleIndex]);
@@ -125,15 +118,12 @@ FLOAT_TYPE timeStep, int nTimeSteps) {
 		SimulationResult *simulationResult = new SimulationResult(result,
 				samplesNumber, model);
 
-#ifdef USE_GPU
 		//freeing resources
 		cudaFree(devPtrL);
 		cublasDestroy(cublasHandle);
-#endif
 
 		return simulationResult;
 
-#ifdef USE_GPU
 	} catch (const std::string &message) {
 		//freeing resources
 		cudaFree(devPtrL);
@@ -141,6 +131,5 @@ FLOAT_TYPE timeStep, int nTimeSteps) {
 
 		throw message;
 	}
-#endif
 }
 

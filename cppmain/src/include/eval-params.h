@@ -15,11 +15,6 @@
 static const int SAMPLES_BETWEEN_PROGRESS = 10;
 
 /**
- * Whether or not use GPUs for calculations
- */
-#define USE_GPU
-
-/**
  * Consider H as a sparse matrix
  * (don't know whether useful or not, may be for bigger dimensions)
  */

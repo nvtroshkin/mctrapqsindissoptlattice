@@ -43,4 +43,12 @@ void print(std::ostream &os, const char title[], const COMPLEX_TYPE **array,
 void print(std::ostream &os, const char title[], const COMPLEX_TYPE *array,
 		int width, int height);
 
+/**
+ * Prints a row to the file:
+ *
+ * "title: {array_elements_separated_by_commas}"
+ */
+void print(const char *fileName, const FLOAT_TYPE *array, const int size);
+
+
 #endif /* SRC_INCLUDE_UTILITIES_H_ */

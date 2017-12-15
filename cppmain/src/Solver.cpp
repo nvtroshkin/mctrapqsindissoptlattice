@@ -12,27 +12,20 @@
 #include "include/Solver.h"
 #include "include/eval-params.h"
 #include "mkl-constants.h"
-//#include <fstream>
 
 #if defined(DEBUG_CONTINUOUS) || defined(DEBUG_JUMPS)
 #include <utilities.h>
 #define LOG_IF_APPROPRIATE(a) if(shouldPrintDebugInfo) (a)
 #endif
 
-#ifdef USE_GPU
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
-#endif
 
 using std::endl;
 
 Solver::Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
-		RndNumProvider &rndNumProvider
-#ifdef USE_GPU
-		, const cublasHandle_t cublasHandle,
-		const CUDA_COMPLEX_TYPE * const devPtrL
-#endif
-		) :
+		RndNumProvider &rndNumProvider, const cublasHandle_t cublasHandle,
+		const CUDA_COMPLEX_TYPE * const devPtrL) :
 		id(id), complexTHalfStep( { 0.5 * timeStep, 0.0 }), complexTStep( {
 				timeStep, 0.0 }), complexTSixthStep( { timeStep / 6.0, 0.0 }), complexTwo(
 				{ 2.0, 0.0 }), complexOne( { 1.0, 0.0 }), complexZero( { 0.0,
@@ -48,13 +41,10 @@ Solver::Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
 						model.getA1PlusInCSR3()), a2CSR3(model.getA2InCSR3()), a2PlusCSR3(
 						model.getA2PlusInCSR3()), a3CSR3(model.getA3InCSR3()), a3PlusCSR3(
 						model.getA3PlusInCSR3()), rndNumProvider(
-						rndNumProvider),
-#ifdef USE_GPU
-				cublasHandle(cublasHandle), devPtrL(devPtrL),
-#endif
+						rndNumProvider), cublasHandle(cublasHandle), devPtrL(
+						devPtrL),
 
 				rndNumIndex(0) {
-#ifdef USE_GPU
 	cudaError_t cudaStatus = cudaMalloc((void**) &devPtrVector,
 			basisSize * sizeof(CUDA_COMPLEX_TYPE));
 	if (cudaStatus != cudaSuccess) {
@@ -75,7 +65,6 @@ Solver::Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
 						+ std::to_string(cudaStatus) << endl;
 		throw cudaStatus;
 	}
-#endif
 
 	zeroVector = new COMPLEX_TYPE[basisSize];
 	for (int i = 0; i < basisSize; ++i) {
@@ -95,23 +84,7 @@ Solver::Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
 	rndNumBuff = (FLOAT_TYPE *) scalable_aligned_malloc(
 			RND_NUM_BUFF_SIZE * sizeof(FLOAT_TYPE), SIMDALIGN);
 
-	// Create a fake buffer with zeros for debugging
-	//	for (int i = 0; i < RND_NUM_BUFF_SIZE; i++) {
-	//		rndNumBuff[i]=0.0;
-	//	}
-
 	rndNumProvider.initBuffer(id, rndNumBuff, RND_NUM_BUFF_SIZE);
-
-	//save the realization to a file
-//	std::ofstream myfile;
-//	myfile.open("rnd-numbers.txt");
-//	if (!myfile.is_open()) {
-//		std::cout << "Can't open file!" << endl;
-//	}
-//	for (int i = 0; i < RND_NUM_BUFF_SIZE; i++) {
-//		myfile << rndNumBuff[i] << ", ";
-//	}
-//	myfile.close();
 }
 
 Solver::~Solver() {
@@ -126,10 +99,8 @@ Solver::~Solver() {
 
 	scalable_aligned_free(rndNumBuff);
 
-#ifdef USE_GPU
 	cudaFree(devPtrVector);
 	cudaFree(devPtrResult);
-#endif
 }
 
 /**
@@ -290,13 +261,12 @@ inline void Solver::multLOnVector(COMPLEX_TYPE *vector, COMPLEX_TYPE *result) {
 	complex_mkl_cspblas_csrgemv("n", &basisSize, lCSR3->values, lCSR3->rowIndex,
 			lCSR3->columns, vector, result);
 #else
-#ifdef USE_GPU
-
 	cublasStatus_t cublasStatus = cublasSetVector(basisSize,
 			sizeof(COMPLEX_TYPE), vector, NO_INC, devPtrVector, NO_INC);
 	if (cublasStatus != CUBLAS_STATUS_SUCCESS) {
 		std::cout
-				<< std::string("Transfer of the state vector to the device memory failed with error:")
+				<< std::string(
+						"Transfer of the state vector to the device memory failed with error:")
 						+ std::to_string(cublasStatus) << endl;
 		throw cublasStatus;
 	}
@@ -322,12 +292,6 @@ inline void Solver::multLOnVector(COMPLEX_TYPE *vector, COMPLEX_TYPE *result) {
 						+ std::to_string(cublasStatus) << endl;
 		throw cublasStatus;
 	}
-
-#else
-	complex_mkl_cblas_gemv(CblasRowMajor, CblasNoTrans, basisSize, basisSize,
-			&complexOne, l, basisSize, vector, NO_INC, &complexZero, result,
-			NO_INC);
-#endif
 #endif
 }
 

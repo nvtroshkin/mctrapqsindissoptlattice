@@ -7,6 +7,7 @@
 
 #include <precision-definition.h>
 #include <iostream>
+#include <fstream>
 
 using std::endl;
 
@@ -44,5 +45,14 @@ void print(std::ostream &os, const char title[], const COMPLEX_TYPE *array,
 		os << " }," << endl;
 	}
 	os << "}" << endl;
+}
+
+void print(const char *fileName, const FLOAT_TYPE *array, const int size) {
+	std::ofstream myfile(fileName);
+	myfile.exceptions ( std::ifstream::failbit | std::ifstream::badbit );
+	for (int i = 0; i < size; i++) {
+		myfile << array[i] << ", ";
+	}
+	myfile.close();
 }
 
