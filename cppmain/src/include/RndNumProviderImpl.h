@@ -8,6 +8,8 @@
 #ifndef SRC_INCLUDE_RNDNUMPROVIDERIMPL_H_
 #define SRC_INCLUDE_RNDNUMPROVIDERIMPL_H_
 
+#include <RndNumProvider.h>
+
 class RndNumProviderImpl: public RndNumProvider {
 	const int nStreams;
 

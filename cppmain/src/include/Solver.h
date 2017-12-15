@@ -14,6 +14,10 @@
 #include <Model.h>
 #include <RndNumProvider.h>
 
+#ifdef USE_GPU
+#include <cublas_v2.h>
+#endif
+
 class Solver {
 	//an alignment for memory in a multithreaded environment
 	static const int SIMDALIGN = 1024;
@@ -49,6 +53,15 @@ class Solver {
 
 	RndNumProvider &rndNumProvider;
 
+#ifdef USE_GPU
+	const cublasHandle_t cublasHandle;
+	const CUDA_COMPLEX_TYPE * const devPtrL;
+
+	//cache
+	CUDA_COMPLEX_TYPE * devPtrVector;
+	CUDA_COMPLEX_TYPE * devPtrResult;
+#endif
+
 	//caches
 	COMPLEX_TYPE *zeroVector;
 
@@ -73,7 +86,12 @@ class Solver {
 	void multLOnVector(COMPLEX_TYPE *vector, COMPLEX_TYPE *result);
 public:
 	Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
-			RndNumProvider &rndNumProvider);
+			RndNumProvider &rndNumProvider
+#ifdef USE_GPU
+			, const cublasHandle_t cublasHandle,
+			const CUDA_COMPLEX_TYPE * const devPtrL
+#endif
+			);
 	~Solver();
 
 	/**

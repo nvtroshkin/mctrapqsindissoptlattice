@@ -1,27 +1,38 @@
 /*
- * runge-kutta-solver.cpp
- *
  *  Created on: Nov 24, 2017
  *      Author: fakesci
  */
 
-#include <mkl-constants.h>
-#include <scalable_allocator.h>
+#include <tbb/scalable_allocator.h>
+#include <string>
+#include <iostream>
+#include "include/precision-definition.h"
+#include "include/Model.h"
+#include "include/RndNumProvider.h"
+#include "include/Solver.h"
+#include "include/eval-params.h"
+#include "mkl-constants.h"
 //#include <fstream>
-
-#include "precision-definition.h"
-#include <Solver.h>
-#include <eval-params.h>
 
 #if defined(DEBUG_CONTINUOUS) || defined(DEBUG_JUMPS)
 #include <utilities.h>
 #define LOG_IF_APPROPRIATE(a) if(shouldPrintDebugInfo) (a)
 #endif
 
+#ifdef USE_GPU
+#include <cublas_v2.h>
+#include <cuda_runtime.h>
+#endif
+
 using std::endl;
 
 Solver::Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
-		RndNumProvider &rndNumProvider) :
+		RndNumProvider &rndNumProvider
+#ifdef USE_GPU
+		, const cublasHandle_t cublasHandle,
+		const CUDA_COMPLEX_TYPE * const devPtrL
+#endif
+		) :
 		id(id), complexTHalfStep( { 0.5 * timeStep, 0.0 }), complexTStep( {
 				timeStep, 0.0 }), complexTSixthStep( { timeStep / 6.0, 0.0 }), complexTwo(
 				{ 2.0, 0.0 }), complexOne( { 1.0, 0.0 }), complexZero( { 0.0,
@@ -37,7 +48,35 @@ Solver::Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
 						model.getA1PlusInCSR3()), a2CSR3(model.getA2InCSR3()), a2PlusCSR3(
 						model.getA2PlusInCSR3()), a3CSR3(model.getA3InCSR3()), a3PlusCSR3(
 						model.getA3PlusInCSR3()), rndNumProvider(
-						rndNumProvider), rndNumIndex(0) {
+						rndNumProvider),
+#ifdef USE_GPU
+				cublasHandle(cublasHandle), devPtrL(devPtrL),
+#endif
+
+				rndNumIndex(0) {
+#ifdef USE_GPU
+	cudaError_t cudaStatus = cudaMalloc((void**) &devPtrVector,
+			basisSize * sizeof(CUDA_COMPLEX_TYPE));
+	if (cudaStatus != cudaSuccess) {
+		std::cout
+				<< std::string(
+						"Device memory allocation for devPtrVector failed with code:")
+						+ std::to_string(cudaStatus) << endl;
+		throw cudaStatus;
+	}
+
+	cudaStatus = cudaMalloc((void**) &devPtrResult,
+			basisSize * sizeof(CUDA_COMPLEX_TYPE));
+	if (cudaStatus != cudaSuccess) {
+		cudaFree(devPtrVector);
+		std::cout
+				<< std::string(
+						"Device memory allocation for devPtrResult failed with code:")
+						+ std::to_string(cudaStatus) << endl;
+		throw cudaStatus;
+	}
+#endif
+
 	zeroVector = new COMPLEX_TYPE[basisSize];
 	for (int i = 0; i < basisSize; ++i) {
 		zeroVector[i].real = 0.0;
@@ -86,6 +125,11 @@ Solver::~Solver() {
 	delete[] curState;
 
 	scalable_aligned_free(rndNumBuff);
+
+#ifdef USE_GPU
+	cudaFree(devPtrVector);
+	cudaFree(devPtrResult);
+#endif
 }
 
 /**
@@ -241,9 +285,34 @@ inline void Solver::multLOnVector(COMPLEX_TYPE *vector, COMPLEX_TYPE *result) {
 	complex_mkl_cspblas_csrgemv("n", &basisSize, lCSR3->values, lCSR3->rowIndex,
 			lCSR3->columns, vector, result);
 #else
+#ifdef USE_GPU
+
+	cublasStatus_t cublasStatus =
+			cublasgemv(cublasHandle, CUBLAS_OP_N, basisSize, basisSize,
+					reinterpret_cast<CUDA_COMPLEX_TYPE *>(const_cast<COMPLEX_TYPE *>(&complexOne)),
+					devPtrL, basisSize, devPtrVector, NO_INC,
+					reinterpret_cast<CUDA_COMPLEX_TYPE *>(const_cast<COMPLEX_TYPE *>(&complexZero)),
+					devPtrResult, NO_INC);
+	if (cublasStatus != CUBLAS_STATUS_SUCCESS) {
+		std::cout
+				<< std::string("GEMV failed with error:")
+						+ std::to_string(cublasStatus) << endl;
+		throw cublasStatus;
+	}
+
+	cublasStatus = cublasGetVector(basisSize, sizeof(CUDA_COMPLEX_TYPE),
+			devPtrResult, NO_INC, result, NO_INC);
+	if (cublasStatus != CUBLAS_STATUS_SUCCESS) {
+		std::cout
+				<< std::string("Can't retrieve result from device:")
+						+ std::to_string(cublasStatus) << endl;
+		throw cublasStatus;
+	}
+#else
 	complex_mkl_cblas_gemv(CblasRowMajor, CblasNoTrans, basisSize, basisSize,
 			&complexOne, l, basisSize, vector, NO_INC, &complexZero, result,
 			NO_INC);
+#endif
 #endif
 }
 
@@ -297,20 +366,22 @@ COMPLEX_TYPE *prevState, COMPLEX_TYPE *curState) {
 //calculate probabilities of each jump
 	FLOAT_TYPE n2Sum = n12.real + n22.real + n32.real;
 	FLOAT_TYPE p1 = n12.real / n2Sum;
-	FLOAT_TYPE p12 = p1 + n22.real / n2Sum; //two first cavities together
+	FLOAT_TYPE p12 =
+			p1
+					+ n22.real / n2Sum;	//two first cavities together
 
 #ifdef DEBUG_JUMPS
-	print(consoleStream, "If jump will be in the first cavity", k1, basisSize);
-	consoleStream << "it's norm^2: " << n12.real << endl;
+					print(consoleStream, "If jump will be in the first cavity", k1, basisSize);
+					consoleStream << "it's norm^2: " << n12.real << endl;
 
-	print(consoleStream, "If jump will be in the second cavity", k2, basisSize);
-	consoleStream << "it's norm^2: " << n22.real << endl;
+					print(consoleStream, "If jump will be in the second cavity", k2, basisSize);
+					consoleStream << "it's norm^2: " << n22.real << endl;
 
-	print(consoleStream, "If jump will be in the third cavity", k3, basisSize);
-	consoleStream << "it's norm^2: " << n32.real << endl;
+					print(consoleStream, "If jump will be in the third cavity", k3, basisSize);
+					consoleStream << "it's norm^2: " << n32.real << endl;
 
-	consoleStream << "Probabilities of the jumps: in the first = " << p1
-	<< ", (the first + the second) = " << p12 << ", third = " << 1-p12 << endl;
+					consoleStream << "Probabilities of the jumps: in the first = " << p1
+					<< ", (the first + the second) = " << p12 << ", third = " << 1-p12 << endl;
 #endif
 
 //choose which jump is occurred,

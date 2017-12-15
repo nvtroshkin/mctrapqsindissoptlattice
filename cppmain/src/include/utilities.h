@@ -8,8 +8,8 @@
 #ifndef SRC_INCLUDE_UTILITIES_H_
 #define SRC_INCLUDE_UTILITIES_H_
 
-#include <precision-definition.h>
 #include <iostream>
+#include "precision-definition.h"
 
 /**
  * Prints a row:

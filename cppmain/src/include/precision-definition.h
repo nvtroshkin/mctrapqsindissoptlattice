@@ -8,12 +8,16 @@
 #ifndef SRC_INCLUDE_PRECISION_DEFINITION_H_
 #define SRC_INCLUDE_PRECISION_DEFINITION_H_
 
+#include <cublas_v2.h>
+#include <cuComplex.h>
+//#define MKL_Complex16 cuDoubleComplex
+
 #include <mkl.h>
 #include <ipps.h>
 
 //used precision - uncomment the right row
-//#define SINGLE_PRECISION
-#define DOUBLE_PRECISION
+#define SINGLE_PRECISION
+//#define DOUBLE_PRECISION
 
 //definitions for single precision
 #ifdef SINGLE_PRECISION
@@ -30,18 +34,24 @@
 #define complex_mkl_dnscsr(...) mkl_cdnscsr (__VA_ARGS__)
 #define complex_cblas_nrm2(...) cblas_scnrm2 (__VA_ARGS__)
 
-#define ippsSum_f(...) ippsSum_32f (__VA_ARGS__)
+#define ippsSum_f(...) ippsSum_32f (__VA_ARGS__, ippAlgHintAccurate)
 #define cblas_dot(...) cblas_dsdot (__VA_ARGS__)
 #define cblas_copy(...) cblas_scopy (__VA_ARGS__)
 #define cblas_scal(...) cblas_sscal (__VA_ARGS__)
 #define vSqrt(...) vsSqrt (__VA_ARGS__)
 #define vRngUniform(...) vsRngUniform (__VA_ARGS__)
+
+//GPU
+#define cublasgemv(...) cublasCgemv (__VA_ARGS__)
+#define CUDA_COMPLEX_TYPE cuFloatComplex
+
 #endif
 
 //definitions for double precision
 #ifdef DOUBLE_PRECISION
 #define FLOAT_TYPE double
 #define COMPLEX_TYPE MKL_Complex16
+#define CUDA_COMPLEX cuDoubleComplex
 
 //mkl functions
 #define complex_cblas_copy(...) cblas_zcopy (__VA_ARGS__)
@@ -59,6 +69,10 @@
 #define cblas_scal(...) cblas_dscal (__VA_ARGS__)
 #define vSqrt(...) vdSqrt (__VA_ARGS__)
 #define vRngUniform(...) vdRngUniform (__VA_ARGS__)
+
+//GPU
+#define cublasgemv(...) cublasZgemv (__VA_ARGS__)
+#define CUDA_COMPLEX_TYPE cuDoubleComplex
 #endif
 
 #endif /* SRC_INCLUDE_PRECISION_DEFINITION_H_ */

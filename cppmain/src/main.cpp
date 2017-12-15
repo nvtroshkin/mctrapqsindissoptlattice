@@ -44,8 +44,12 @@ int main(int argc, char **argv) {
 
 		//freeing up resources
 		delete result;
+	} catch (const std::string &message) {
+		cerr << message << endl;
 	} catch (char *message) {
-		cerr << message;
+		cerr << message << endl;
+	} catch (...) {
+		cout << "Exception has been thrown - terminating" << endl;
 	}
 
 	auto end = chrono::steady_clock::now();

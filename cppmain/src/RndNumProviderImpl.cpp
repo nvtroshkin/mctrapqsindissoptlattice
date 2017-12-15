@@ -1,15 +1,13 @@
 /*
- * RndNumProvider.cpp
+ * RndNumProviderImpl.cpp
  *
  *  Created on: Nov 30, 2017
  *      Author: fakesci
  */
 
-#include <precision-definition.h>
 #include <mkl.h>
-#include <RndNumProvider.h>
-
-#include <RndNumProviderImpl.h>
+#include "include/RndNumProviderImpl.h"
+#include "include/precision-definition.h"
 
 RndNumProviderImpl::RndNumProviderImpl(int rndSeed, int nStreams) :
 		nStreams(nStreams) {
