@@ -10,6 +10,7 @@
 #include "Model.h"
 #include "Solver.h"
 #include "MonteCarloSimulator.h"
+#include "RndNumProviderImpl.h"
 
 /**
  *	KAPPA = 1.0

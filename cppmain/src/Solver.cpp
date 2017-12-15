@@ -219,7 +219,8 @@ void Solver::solve(std::ostream &consoleStream,
 	}
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "Normed Psi(n+1)", curState, basisSize));
+	LOG_IF_APPROPRIATE(
+			print(consoleStream, "Normed Psi(n+1)", curState, basisSize));
 #endif
 
 	//write results out
@@ -228,6 +229,10 @@ void Solver::solve(std::ostream &consoleStream,
 
 inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream) {
 	//uses nextState as a temporary storage vector
+
+#ifdef DEBUG_CONTINUOUS
+	LOG_IF_APPROPRIATE(print(consoleStream, "prevState", prevState, basisSize));
+#endif
 
 	//k1 = f(t, sample[i]);
 	//to k1
@@ -287,7 +292,16 @@ inline void Solver::multLOnVector(COMPLEX_TYPE *vector, COMPLEX_TYPE *result) {
 #else
 #ifdef USE_GPU
 
-	cublasStatus_t cublasStatus =
+	cublasStatus_t cublasStatus = cublasSetVector(basisSize,
+			sizeof(COMPLEX_TYPE), vector, NO_INC, devPtrVector, NO_INC);
+	if (cublasStatus != CUBLAS_STATUS_SUCCESS) {
+		std::cout
+				<< std::string("Transfer of the state vector to the device memory failed with error:")
+						+ std::to_string(cublasStatus) << endl;
+		throw cublasStatus;
+	}
+
+	cublasStatus =
 			cublasgemv(cublasHandle, CUBLAS_OP_N, basisSize, basisSize,
 					reinterpret_cast<CUDA_COMPLEX_TYPE *>(const_cast<COMPLEX_TYPE *>(&complexOne)),
 					devPtrL, basisSize, devPtrVector, NO_INC,
@@ -308,6 +322,7 @@ inline void Solver::multLOnVector(COMPLEX_TYPE *vector, COMPLEX_TYPE *result) {
 						+ std::to_string(cublasStatus) << endl;
 		throw cublasStatus;
 	}
+
 #else
 	complex_mkl_cblas_gemv(CblasRowMajor, CblasNoTrans, basisSize, basisSize,
 			&complexOne, l, basisSize, vector, NO_INC, &complexZero, result,

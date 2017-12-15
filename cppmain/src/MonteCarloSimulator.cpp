@@ -18,6 +18,7 @@
 #include "include/mkl-constants.h"
 #include "include/SimulationResult.h"
 #include "include/Solver.h"
+#include "utilities.h"
 
 #ifdef USE_GPU
 #include <cublas_v2.h>
@@ -72,7 +73,7 @@ FLOAT_TYPE timeStep, int nTimeSteps) {
 		COMPLEX_TYPE columnMajorL[basisSize * basisSize];
 		for (int j = 0; j < basisSize; ++j) {
 			for (int i = 0; i < basisSize; ++i) {
-				columnMajorL[i] = rowMajorL[i * basisSize + j];
+				columnMajorL[j * basisSize + i] = rowMajorL[i * basisSize + j];
 			}
 		}
 
