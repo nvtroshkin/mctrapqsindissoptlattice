@@ -49,7 +49,7 @@ class Model {
 
 	CSR3Matrix *a3InCSR3;
 	CSR3Matrix *a3PlusInCSR3;
-#ifdef H_SPARSE
+#ifdef L_SPARSE
 	CSR3Matrix *lInCSR3;
 #else
 	COMPLEX_TYPE *l;
@@ -167,7 +167,7 @@ public:
 	 */
 	CSR3Matrix *getA3PlusInCSR3() const;
 
-#ifdef H_SPARSE
+#ifdef L_SPARSE
 	/**
 	 * A CSR3 representation of the Shroedinger's equation right part operator (L):
 	 * dPsi/dt = L Psi.
@@ -246,7 +246,7 @@ inline CSR3Matrix *Model::getA3PlusInCSR3() const {
 	return a3PlusInCSR3;
 }
 
-#ifdef H_SPARSE
+#ifdef L_SPARSE
 inline CSR3Matrix *Model::getLInCSR3() const {
 	return lInCSR3;
 }

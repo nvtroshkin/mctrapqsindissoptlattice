@@ -31,7 +31,7 @@ Solver::Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
 				{ 2.0, 0.0 }), complexOne( { 1.0, 0.0 }), complexZero( { 0.0,
 				0.0 }), basisSize(model.getBasisSize()), timeStepsNumber(
 				timeStepsNumber),
-#ifdef H_SPARSE
+#ifdef L_SPARSE
 				lCSR3(
 						model.getLInCSR3())
 #else
@@ -257,7 +257,7 @@ inline void Solver::make4thOrderRungeKuttaStep(std::ostream &consoleStream) {
 }
 
 inline void Solver::multLOnVector(COMPLEX_TYPE *vector, COMPLEX_TYPE *result) {
-#ifdef H_SPARSE
+#ifdef L_SPARSE
 	complex_mkl_cspblas_csrgemv("n", &basisSize, lCSR3->values, lCSR3->rowIndex,
 			lCSR3->columns, vector, result);
 #else

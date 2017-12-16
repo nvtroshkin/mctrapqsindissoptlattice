@@ -37,7 +37,7 @@ FLOAT_TYPE scE, FLOAT_TYPE J) :
 
 	a3InCSR3 = createCSR3Matrix(&Model::a3Complex, "A3");
 	a3PlusInCSR3 = createCSR3Matrix(&Model::a3PlusComplex, "A3Plus");
-#ifdef H_SPARSE
+#ifdef L_SPARSE
 	lInCSR3 = createCSR3Matrix(&Model::L, "L");
 #else
 	l = createMatrix(&Model::L, "L");
@@ -53,7 +53,7 @@ Model::~Model() {
 	delete a3InCSR3;
 	delete a3PlusInCSR3;
 
-#ifdef H_SPARSE
+#ifdef L_SPARSE
 	delete lInCSR3;
 #else
 	delete[] l;

@@ -36,7 +36,7 @@ class Solver {
 	COMPLEX_TYPE norm2 { 1.0, 0.0 }, normReversed { 1.0, 0.0 }, n12, n22, n32;
 
 	//the model
-#ifdef H_SPARSE
+#ifdef L_SPARSE
 	const CSR3Matrix * const lCSR3;
 #else
 	const COMPLEX_TYPE * const l;

@@ -15,10 +15,10 @@
 static const int SAMPLES_BETWEEN_PROGRESS = 10;
 
 /**
- * Consider H as a sparse matrix
+ * Consider L as a sparse matrix
  * (don't know whether useful or not, may be for bigger dimensions)
  */
-//#define H_SPARSE
+//#define L_SPARSE
 
 /**
  * Print info about how dense matrices of the operators are
