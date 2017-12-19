@@ -8,9 +8,9 @@
 #ifndef SRC_INCLUDE_PRECISION_DEFINITION_H_
 #define SRC_INCLUDE_PRECISION_DEFINITION_H_
 
-#include <cublas_v2.h>
 #include <cuComplex.h>
-//#define MKL_Complex16 cuDoubleComplex
+#define MKL_Complex16 cuDoubleComplex
+#define MKL_Complex8 cuFloatComplex
 
 #include <mkl.h>
 #include <ipps.h>
@@ -42,8 +42,8 @@
 #define vRngUniform(...) vsRngUniform (__VA_ARGS__)
 
 //GPU
-#define cublasgemv(...) cublasCgemv (__VA_ARGS__)
 #define CUDA_COMPLEX_TYPE cuFloatComplex
+#define rsqrt(...) rsqrtf (__VA_ARGS__)
 
 #endif
 
@@ -71,8 +71,8 @@
 #define vRngUniform(...) vdRngUniform (__VA_ARGS__)
 
 //GPU
-#define cublasgemv(...) cublasZgemv (__VA_ARGS__)
 #define CUDA_COMPLEX_TYPE cuDoubleComplex
+#define curand_uniform(...) curand_uniform_double (__VA_ARGS__)
 #endif
 
 #endif /* SRC_INCLUDE_PRECISION_DEFINITION_H_ */

@@ -14,7 +14,7 @@
 
 class SimulationResult {
 
-    typedef int (Model::*PhotonNumberFuncP)(int index) const;
+    typedef uint (Model::*PhotonNumberFuncP)(uint index) const;
 
     COMPLEX_TYPE **const result;
     const int samplesNumber;

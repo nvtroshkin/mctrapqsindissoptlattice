@@ -25,7 +25,7 @@ struct CSR3Matrix {
 	/**
 	 * The non-zero elements
 	 */
-	COMPLEX_TYPE *values;
+	CUDA_COMPLEX_TYPE *values;
 
 	/**
 	 * The i-th element value is the column of the i-th value in values

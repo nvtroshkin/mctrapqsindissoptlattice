@@ -15,7 +15,7 @@ void print(std::ostream &os, const char title[], const COMPLEX_TYPE array[],
 		int arraySize) {
 	os << title << ": {" << endl;
 	for (int v = 0; v < arraySize; v++) {
-		os << array[v].real << " + " << array[v].imag << "i, ";
+		os << array[v].x << " + " << array[v].y << "i, ";
 	}
 	os << "}" << endl;
 }
@@ -26,7 +26,7 @@ void print(std::ostream &os, const char title[], COMPLEX_TYPE **array,
 	for (int i = 0; i < height; ++i) {
 		os << "  { ";
 		for (int j = 0; j < width; j++) {
-			os << array[i][j].real << " + " << array[i][j].imag << "i, ";
+			os << array[i][j].x << " + " << array[i][j].y << "i, ";
 		}
 		os << " }," << endl;
 	}
@@ -39,8 +39,8 @@ void print(std::ostream &os, const char title[], const COMPLEX_TYPE *array,
 	for (int i = 0; i < height; ++i) {
 		os << "  { ";
 		for (int j = 0; j < width; j++) {
-			os << array[i * width + j].real << " + "
-					<< array[i * width + j].imag << "i, ";
+			os << array[i * width + j].x << " + "
+					<< array[i * width + j].y << "i, ";
 		}
 		os << " }," << endl;
 	}

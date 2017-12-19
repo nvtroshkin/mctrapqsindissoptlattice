@@ -10,7 +10,7 @@
 
 CSR3Matrix::CSR3Matrix(int rowsNumber, int columnsNumber) :
 		rowsNumber(rowsNumber), values(
-				new COMPLEX_TYPE[rowsNumber * columnsNumber]), columns(
+				new CUDA_COMPLEX_TYPE[rowsNumber * columnsNumber]), columns(
 				new int[rowsNumber * columnsNumber]), rowIndex(
 				new int[rowsNumber + 1]) {
 }

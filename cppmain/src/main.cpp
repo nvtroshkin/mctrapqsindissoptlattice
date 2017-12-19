@@ -2,7 +2,6 @@
 #include <ImpreciseValue.h>
 #include <Model.h>
 #include <MonteCarloSimulator.h>
-#include <RndNumProviderImpl.h>
 #include <system-constants.h>
 #include <SimulationResult.h>
 #include <iostream>
@@ -20,11 +19,11 @@ int main(int argc, char **argv) {
 				ATOM_3_LEVELS_NUMBER, FIELD_1_FOCK_STATES_NUMBER,
 				FIELD_2_FOCK_STATES_NUMBER, FIELD_3_FOCK_STATES_NUMBER, KAPPA,
 				DELTA_OMEGA, G, scE, J);
-		RndNumProviderImpl rndNumProvider(RANDSEED, 1);
-		MonteCarloSimulator monteCarloSimulator(MONTE_CARLO_SAMPLES_NUMBER, model, rndNumProvider);
+		MonteCarloSimulator monteCarloSimulator(MONTE_CARLO_SAMPLES_NUMBER,
+				model);
 
-		SimulationResult *result = monteCarloSimulator.simulate(cout,
-				TIME_STEP_SIZE, TIME_STEPS_NUMBER);
+		SimulationResult *result = monteCarloSimulator.simulate(TIME_STEP_SIZE,
+				TIME_STEPS_NUMBER, THREADS_PER_BLOCK, N_BLOCKS);
 
 		ImpreciseValue *firstCavityPhotons = result->getFirstCavityPhotons();
 		cout << "Avg field photons in the first cavity: "

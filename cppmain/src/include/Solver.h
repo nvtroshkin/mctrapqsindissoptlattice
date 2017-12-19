@@ -1,5 +1,5 @@
 /*
- * runge-kutta-solver.h
+ * Solver.h
  *
  *  Created on: Nov 24, 2017
  *      Author: fakesci
@@ -12,89 +12,151 @@
 #include <iostream>
 #include <CSR3Matrix.h>
 #include <Model.h>
-#include <RndNumProvider.h>
 
 #include <cublas_v2.h>
+#include <curand_kernel.h>
 
 class Solver {
-	//an alignment for memory in a multithreaded environment
-	static const int SIMDALIGN = 1024;
 
-	const int id;
+	//------------------constants--------------------------
+	const FLOAT_TYPE tStep;
 
-	const COMPLEX_TYPE complexTHalfStep;
-	const COMPLEX_TYPE complexTStep;
-	const COMPLEX_TYPE complexTSixthStep;
-	const COMPLEX_TYPE complexTwo;
-	const COMPLEX_TYPE complexOne;
-	const COMPLEX_TYPE complexZero;
+	const FLOAT_TYPE tHalfStep;
 
-	const MKL_INT basisSize;
-	const int timeStepsNumber;
+	const FLOAT_TYPE tSixthStep;
 
-	//norms
-	COMPLEX_TYPE norm2 { 1.0, 0.0 }, normReversed { 1.0, 0.0 }, n12, n22, n32;
+	const int ntimeSteps;
 
-	//the model
+	//------------------model------------------------------
+	const int basisSize;
+
 #ifdef L_SPARSE
-	const CSR3Matrix * const lCSR3;
+	__restrict__ const CSR3Matrix * const lCSR3;
 #else
-	const COMPLEX_TYPE * const l;
+	__restrict__                             const CUDA_COMPLEX_TYPE * const l;
 #endif
 
-	const CSR3Matrix * const a1CSR3;
-	const CSR3Matrix * const a1PlusCSR3;
-	const CSR3Matrix * const a2CSR3;
-	const CSR3Matrix * const a2PlusCSR3;
-	const CSR3Matrix * const a3CSR3;
-	const CSR3Matrix * const a3PlusCSR3;
+	const int a1CSR3RowsNum;
+	const CUDA_COMPLEX_TYPE * __restrict__ const a1CSR3Values;
+	const int * __restrict__ const a1CSR3Columns;
+	const int * __restrict__ const a1CSR3RowIndex;
 
-	RndNumProvider &rndNumProvider;
+	const int a2CSR3RowsNum;
+	const CUDA_COMPLEX_TYPE * __restrict__ const a2CSR3Values;
+	const int * __restrict__ const a2CSR3Columns;
+	const int * __restrict__ const a2CSR3RowIndex;
 
-	const cublasHandle_t cublasHandle;
-	const CUDA_COMPLEX_TYPE * const devPtrL;
+	const int a3CSR3RowsNum;
+	const CUDA_COMPLEX_TYPE * __restrict__ const a3CSR3Values;
+	const int * __restrict__ const a3CSR3Columns;
+	const int * __restrict__ const a3CSR3RowIndex;
 
-	//cache
-	CUDA_COMPLEX_TYPE * devPtrVector;CUDA_COMPLEX_TYPE * devPtrResult;
+	//------------------caches-----------------------------
+	curandStateMRG32k3a_t state;
 
-	//caches
-	COMPLEX_TYPE *zeroVector;
+	//shared between threads in a block
+	FLOAT_TYPE * __restrict__ const svNormThresholdPtr;
 
-	COMPLEX_TYPE *k1, *k2, *k3, *k4, *tempVector, *prevState, *curState;
+	FLOAT_TYPE * __restrict__ const sharedFloatPtr;
+
+	CUDA_COMPLEX_TYPE ** sharedPointerPtr;
+
+	CUDA_COMPLEX_TYPE * __restrict__ const k1;
+
+	CUDA_COMPLEX_TYPE * __restrict__ const k2;
+
+	CUDA_COMPLEX_TYPE * __restrict__ const k3;
+
+	CUDA_COMPLEX_TYPE * __restrict__ const k4;
+
+	CUDA_COMPLEX_TYPE * __restrict__ prevState;
+
+	CUDA_COMPLEX_TYPE * __restrict__ curState;
+
+	//----------------------------------------------------
 
 #if defined(DEBUG_CONTINUOUS) || defined(DEBUG_JUMPS)
 	bool shouldPrintDebugInfo = false;
 #endif
 
-	//random numbers
-	int rndNumIndex;	//indicates where we are in the buffer
-	FLOAT_TYPE *rndNumBuff;
+//------------------Declarations-----------------------
 
-	void make4thOrderRungeKuttaStep(std::ostream &consoleStream);
+	__device__
+	void make4thOrderRungeKuttaStep();
 
-	void normalizeVector(COMPLEX_TYPE *stateVector,
-			const COMPLEX_TYPE &stateVectorNorm2,
-			COMPLEX_TYPE *result);
+	__device__
+	void normalizeVector(CUDA_COMPLEX_TYPE *stateVector,
+			const CUDA_COMPLEX_TYPE &stateVectorNorm2,
+			CUDA_COMPLEX_TYPE *result);
 
-	FLOAT_TYPE nextRandom();
+	__device__
+	void parallelMultLV(CUDA_COMPLEX_TYPE *vector,
+	CUDA_COMPLEX_TYPE *result);
 
-	void multLOnVector(COMPLEX_TYPE *vector, COMPLEX_TYPE *result);
+	__device__
+	void parallelMultMatrixVector(const CUDA_COMPLEX_TYPE * const matrix,
+			const int &rows, const int &columns,
+			CUDA_COMPLEX_TYPE *vector,
+			CUDA_COMPLEX_TYPE *result);
+
+	__device__
+	void parallelMultCSR3MatrixVector(const int csr3MatrixRowsNum,
+			const CUDA_COMPLEX_TYPE * const csr3MatrixValues,
+			const int * const csr3MatrixColumns,
+			const int * const csr3MatrixRowIndex,
+			CUDA_COMPLEX_TYPE *vector, CUDA_COMPLEX_TYPE *result);
+
+	__device__ FLOAT_TYPE calcNormSquare(CUDA_COMPLEX_TYPE * v);
+
+	__device__
+	void parallelCopy(CUDA_COMPLEX_TYPE * source,
+	CUDA_COMPLEX_TYPE * dest);
+
+	__device__
+	void parallelCalcAlphaVector(const FLOAT_TYPE &alpha,
+	CUDA_COMPLEX_TYPE * vector, CUDA_COMPLEX_TYPE * result);
+
+	__device__
+	void parallelCalcV1PlusAlphaV2(
+	CUDA_COMPLEX_TYPE * v1, const FLOAT_TYPE &alpha, CUDA_COMPLEX_TYPE * v2,
+	CUDA_COMPLEX_TYPE * result);
+
+	__device__
+	void parallelCalcCurrentY();
+
+	__device__ CUDA_COMPLEX_TYPE multiplyRow(uint rowsize,
+			const int * const columnIndices,
+			const CUDA_COMPLEX_TYPE * const matrixValues,
+			const CUDA_COMPLEX_TYPE * const vector);
+
 public:
-	Solver(int id, FLOAT_TYPE timeStep, int timeStepsNumber, Model &model,
-			RndNumProvider &rndNumProvider, const cublasHandle_t cublasHandle,
-			const CUDA_COMPLEX_TYPE * const devPtrL);
-	~Solver();
+	__device__
+	Solver(int basisSize, FLOAT_TYPE timeStep, int timeStepsNumber,
+	CUDA_COMPLEX_TYPE * l, int a1CSR3RowsNum,
+	CUDA_COMPLEX_TYPE * a1CSR3Values, int * a1CSR3Columns, int * a1CSR3RowIndex,
+			int a2CSR3RowsNum,
+			CUDA_COMPLEX_TYPE * a2CSR3Values, int * a2CSR3Columns,
+			int * a2CSR3RowIndex, int a3CSR3RowsNum,
+			CUDA_COMPLEX_TYPE * a3CSR3Values, int * a3CSR3Columns,
+			int * a3CSR3RowIndex,
+			FLOAT_TYPE * svNormThresholdPtr,
+			FLOAT_TYPE * sharedFloatPtr, CUDA_COMPLEX_TYPE ** sharedPointerPtr,
+			CUDA_COMPLEX_TYPE *k1,
+			CUDA_COMPLEX_TYPE *k2,
+			CUDA_COMPLEX_TYPE *k3, CUDA_COMPLEX_TYPE *k4,
+			CUDA_COMPLEX_TYPE *prevState, CUDA_COMPLEX_TYPE *curState);
 
 	/**
 	 * Stores the final result in the curStep
 	 */
-	void solve(std::ostream &consoleStream, const COMPLEX_TYPE * initialState,
-	COMPLEX_TYPE * const resultState);
+	__device__
+	void solve();
 
-	void normalizeVector(COMPLEX_TYPE *stateVector);
+	__device__
+	void parallelNormalizeVector(CUDA_COMPLEX_TYPE *stateVector);
 
-	void makeJump(std::ostream &consoleStream, COMPLEX_TYPE *prevState,
-	COMPLEX_TYPE *curState);
+	__device__
+	void makeJump();
 };
 
 #endif /* SRC_INCLUDE_SOLVER_H_ */

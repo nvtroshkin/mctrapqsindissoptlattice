@@ -16,21 +16,21 @@
 
 class Model {
 
-	typedef COMPLEX_TYPE (Model::*CalcElemFuncP)(int i, int j) const;
+	typedef CUDA_COMPLEX_TYPE (Model::*CalcElemFuncP)(uint i, uint j) const;
 
-	const MKL_INT atom1SSize;
-	const MKL_INT field1SSize;
-	const MKL_INT subs1Size;
+	const uint atom1SSize;
+	const uint field1SSize;
+	const uint subs1Size;
 
-	const MKL_INT atom2SSize;
-	const MKL_INT field2SSize;
-	const MKL_INT subs2Size;
+	const uint atom2SSize;
+	const uint field2SSize;
+	const uint subs2Size;
 
-	const MKL_INT atom3SSize;
-	const MKL_INT field3SSize;
-	const MKL_INT subs3Size;
+	const uint atom3SSize;
+	const uint field3SSize;
+	const uint subs3Size;
 
-	const MKL_INT basisSize;
+	const uint basisSize;
 
 	const FLOAT_TYPE kappa;
 	const FLOAT_TYPE deltaOmega;
@@ -52,27 +52,27 @@ class Model {
 #ifdef L_SPARSE
 	CSR3Matrix *lInCSR3;
 #else
-	COMPLEX_TYPE *l;
+	CUDA_COMPLEX_TYPE *l;
 #endif
 
 	//The basis vectors are enumerated flatly, |photon number>|atom state>,
 	//|0>|0>, |0>|1> and etc.
 
-	COMPLEX_TYPE a1PlusComplex(int i, int j) const;
+	CUDA_COMPLEX_TYPE a1PlusComplex(uint i, uint j) const;
 
-	COMPLEX_TYPE a1Complex(int i, int j) const;
+	CUDA_COMPLEX_TYPE a1Complex(uint i, uint j) const;
 
-	COMPLEX_TYPE a2PlusComplex(int i, int j) const;
+	CUDA_COMPLEX_TYPE a2PlusComplex(uint i, uint j) const;
 
-	COMPLEX_TYPE a2Complex(int i, int j) const;
+	CUDA_COMPLEX_TYPE a2Complex(uint i, uint j) const;
 
-	COMPLEX_TYPE a3PlusComplex(int i, int j) const;
+	CUDA_COMPLEX_TYPE a3PlusComplex(uint i, uint j) const;
 
-	COMPLEX_TYPE a3Complex(int i, int j) const;
+	CUDA_COMPLEX_TYPE a3Complex(uint i, uint j) const;
 
 	CSR3Matrix *createCSR3Matrix(CalcElemFuncP f, std::string matrixName) const;
 
-	COMPLEX_TYPE *createMatrix(CalcElemFuncP f, std::string matrixName) const;
+	CUDA_COMPLEX_TYPE *createMatrix(CalcElemFuncP f, std::string matrixName) const;
 
 	CSR3Matrix *createA1InCSR3();
 	CSR3Matrix *createA1PlusInCSR3();
@@ -86,9 +86,9 @@ class Model {
 	CSR3Matrix *createLInCSR3();
 
 public:
-	Model(MKL_INT atom1SSize, MKL_INT atom2SSize, MKL_INT atom3SSize,
-	MKL_INT field1SSize,
-	MKL_INT field2SSize, MKL_INT field3SSize,
+	Model(uint atom1SSize, uint atom2SSize, uint atom3SSize,
+	uint field1SSize,
+	uint field2SSize, uint field3SSize,
 	FLOAT_TYPE kappa, FLOAT_TYPE deltaOmega, FLOAT_TYPE g,
 	FLOAT_TYPE scE, FLOAT_TYPE J);
 
@@ -96,29 +96,29 @@ public:
 
 	//------------  Internal - for tests   ----------------------------------------
 
-	FLOAT_TYPE a1Plus(int i, int j) const;
+	FLOAT_TYPE a1Plus(uint i, uint j) const;
 
-	FLOAT_TYPE a1(int i, int j) const;
+	FLOAT_TYPE a1(uint i, uint j) const;
 
-	FLOAT_TYPE sigma1Plus(int i, int j) const;
+	FLOAT_TYPE sigma1Plus(uint i, uint j) const;
 
-	FLOAT_TYPE sigma1Minus(int i, int j) const;
+	FLOAT_TYPE sigma1Minus(uint i, uint j) const;
 
-	FLOAT_TYPE a2Plus(int i, int j) const;
+	FLOAT_TYPE a2Plus(uint i, uint j) const;
 
-	FLOAT_TYPE a2(int i, int j) const;
+	FLOAT_TYPE a2(uint i, uint j) const;
 
-	FLOAT_TYPE sigma2Plus(int i, int j) const;
+	FLOAT_TYPE sigma2Plus(uint i, uint j) const;
 
-	FLOAT_TYPE sigma2Minus(int i, int j) const;
+	FLOAT_TYPE sigma2Minus(uint i, uint j) const;
 
-	FLOAT_TYPE a3Plus(int i, int j) const;
+	FLOAT_TYPE a3Plus(uint i, uint j) const;
 
-	FLOAT_TYPE a3(int i, int j) const;
+	FLOAT_TYPE a3(uint i, uint j) const;
 
-	FLOAT_TYPE sigma3Plus(int i, int j) const;
+	FLOAT_TYPE sigma3Plus(uint i, uint j) const;
 
-	FLOAT_TYPE sigma3Minus(int i, int j) const;
+	FLOAT_TYPE sigma3Minus(uint i, uint j) const;
 
 	/**
 	 * -i*Hhat, Hhat is defined by exp. (7.11), Petruchionne p363
@@ -128,12 +128,12 @@ public:
 	 * real = -kappa*a1Plus.a1-kappa*a2Plus.a2
 	 * imagine = -H
 	 */
-	COMPLEX_TYPE L(int i, int j) const;
+	CUDA_COMPLEX_TYPE L(uint i, uint j) const;
 
 	/**
 	 * The Hamiltonian of the system
 	 */
-	FLOAT_TYPE H(int i, int j) const;
+	FLOAT_TYPE H(uint i, uint j) const;
 
 	//---------------------------------------------------------
 
@@ -178,46 +178,46 @@ public:
 	 * Matrix representation of the Shroedinger's equation right part operator (L):
 	 * dPsi/dt = L Psi.
 	 */
-	COMPLEX_TYPE *getL() const;
+	CUDA_COMPLEX_TYPE *getL() const;
 #endif
 
 	/**
 	 * Returns the photon number of the field in the 1st cavity
 	 * corresponding to a state
 	 */
-	int n1(int stateIndex) const;
+	uint n1(uint stateIndex) const;
 
 	/**
 	 * Returns the atom 1 level number corresponding to a state
 	 */
-	int s1(int stateIndex) const;
+	uint s1(uint stateIndex) const;
 
 	/**
 	 * Returns the photon number of the field in the 2nd cavity
 	 * corresponding to a state
 	 */
-	int n2(int stateIndex) const;
+	uint n2(uint stateIndex) const;
 
 	/**
 	 * Returns the atom 2 level number corresponding to a state
 	 */
-	int s2(int stateIndex) const;
+	uint s2(uint stateIndex) const;
 
 	/**
 	 * Returns the photon number of the field in the 3rd cavity
 	 * corresponding to a state
 	 */
-	int n3(int stateIndex) const;
+	uint n3(uint stateIndex) const;
 
 	/**
 	 * Returns the atom 3 level number corresponding to a state
 	 */
-	int s3(int stateIndex) const;
+	uint s3(uint stateIndex) const;
 
 	/**
 	 * Returns size of the whole basis
 	 */
-	MKL_INT getBasisSize() const;
+	uint getBasisSize() const;
 };
 
 //---------------------------------------------------------
@@ -251,36 +251,36 @@ inline CSR3Matrix *Model::getLInCSR3() const {
 	return lInCSR3;
 }
 #else
-inline COMPLEX_TYPE *Model::getL() const {
+inline CUDA_COMPLEX_TYPE *Model::getL() const {
 	return l;
 }
 #endif
 
-inline int Model::n1(int stateIndex) const {
+inline uint Model::n1(uint stateIndex) const {
 	return stateIndex / (atom1SSize * subs2Size * subs3Size);
 }
 
-inline int Model::s1(int stateIndex) const {
+inline uint Model::s1(uint stateIndex) const {
 	return (stateIndex / (subs2Size * subs3Size)) % atom1SSize;
 }
 
-inline int Model::n2(int stateIndex) const {
+inline uint Model::n2(uint stateIndex) const {
 	return (stateIndex / (atom2SSize * subs3Size)) % field2SSize;
 }
 
-inline int Model::s2(int stateIndex) const {
+inline uint Model::s2(uint stateIndex) const {
 	return (stateIndex / subs3Size) % atom2SSize;
 }
 
-inline int Model::n3(int stateIndex) const {
+inline uint Model::n3(uint stateIndex) const {
 	return (stateIndex / atom3SSize) % field3SSize;
 }
 
-inline int Model::s3(int stateIndex) const {
+inline uint Model::s3(uint stateIndex) const {
 	return stateIndex % atom3SSize;
 }
 
-inline MKL_INT Model::getBasisSize() const {
+inline uint Model::getBasisSize() const {
 	return basisSize;
 }
 

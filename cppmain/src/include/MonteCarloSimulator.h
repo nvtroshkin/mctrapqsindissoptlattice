@@ -9,32 +9,26 @@
 #define SRC_INCLUDE_MONTECARLOSIMULATOR_H_
 
 #include <precision-definition.h>
-#include <Solver.h>
-#include <CSR3Matrix.h>
 #include <Model.h>
 #include <SimulationResult.h>
-#include <iostream>
-#include <RndNumProvider.h>
 
 class MonteCarloSimulator {
-	const MKL_INT basisSize;
-	const MKL_INT samplesNumber;
+	const uint basisSize;
+	const uint samplesNumber;
 
 	Model &model;
-	RndNumProvider &rndNumProvider;
 
-	// a vector with all zeros
-	COMPLEX_TYPE * const zeroVector;
 	//used as initial state
 	COMPLEX_TYPE * const groundState;
 
 public:
-	MonteCarloSimulator(MKL_INT samplesNumber, Model &model,
-			RndNumProvider &rndNumProvider);
+	__host__
+	MonteCarloSimulator(uint samplesNumber, Model &model);__host__
 	~MonteCarloSimulator();
 
-	SimulationResult *simulate(std::ostream &consoleStream, FLOAT_TYPE timeStep,
-			int nTimeSteps);
+	__host__
+	SimulationResult *simulate(FLOAT_TYPE timeStep, uint nTimeSteps,
+			uint threadsPerBlock, uint nBlocks);
 };
 
 #endif /* SRC_INCLUDE_MONTECARLOSIMULATOR_H_ */

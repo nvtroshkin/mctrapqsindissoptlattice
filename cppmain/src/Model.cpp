@@ -7,11 +7,10 @@
 #include <utilities.h>
 #include <mkl-constants.h>
 
-Model::Model(MKL_INT atom1SSize, MKL_INT atom2SSize, MKL_INT atom3SSize,
-MKL_INT field1SSize,
-MKL_INT field2SSize, MKL_INT field3SSize,
-FLOAT_TYPE kappa, FLOAT_TYPE deltaOmega, FLOAT_TYPE g,
-FLOAT_TYPE scE, FLOAT_TYPE J) :
+Model::Model(uint atom1SSize, uint atom2SSize, uint atom3SSize,
+		uint field1SSize, uint field2SSize, uint field3SSize,
+		FLOAT_TYPE kappa, FLOAT_TYPE deltaOmega, FLOAT_TYPE g,
+		FLOAT_TYPE scE, FLOAT_TYPE J) :
 		atom1SSize(atom1SSize), field1SSize(field1SSize), subs1Size(
 				atom1SSize * field1SSize), atom2SSize(atom2SSize), field2SSize(
 				field2SSize), subs2Size(atom2SSize * field2SSize), atom3SSize(
@@ -19,12 +18,12 @@ FLOAT_TYPE scE, FLOAT_TYPE J) :
 				atom3SSize * field3SSize), basisSize(
 				subs1Size * subs2Size * subs3Size), kappa(kappa), deltaOmega(
 				deltaOmega), g(g), scE(scE), J(J) {
-	MKL_INT maxFieldSSize = std::max(std::max(field1SSize, field2SSize),
+	uint maxFieldSSize = std::max(std::max(field1SSize, field2SSize),
 			field3SSize);
 
 	sqrtsOfPhotonNumbers = new FLOAT_TYPE[maxFieldSSize];
 	FLOAT_TYPE photonNumbers[maxFieldSSize];
-	for (int k = 0; k < maxFieldSSize; ++k) {
+	for (uint k = 0; k < maxFieldSSize; ++k) {
 		photonNumbers[k] = k;
 	}
 	vSqrt(maxFieldSSize, photonNumbers, sqrtsOfPhotonNumbers);
@@ -62,91 +61,91 @@ Model::~Model() {
 
 //------------------------ The first cavity ------------------------------
 
-inline FLOAT_TYPE Model::a1Plus(int i, int j) const {
+inline FLOAT_TYPE Model::a1Plus(uint i, uint j) const {
 	return (n1(i) != n1(j) + 1 || s1(i) != s1(j)) ?
 			0.0 : sqrtsOfPhotonNumbers[n1(j) + 1];
 }
 
-inline FLOAT_TYPE Model::a1(int i, int j) const {
+inline FLOAT_TYPE Model::a1(uint i, uint j) const {
 	return a1Plus(j, i);
 }
 
-inline FLOAT_TYPE Model::sigma1Plus(int i, int j) const {
+inline FLOAT_TYPE Model::sigma1Plus(uint i, uint j) const {
 	return (s1(j) != 0 || s1(i) != 1 || n1(i) != n1(j)) ? 0.0 : 1.0;
 }
 
-inline FLOAT_TYPE Model::sigma1Minus(int i, int j) const {
+inline FLOAT_TYPE Model::sigma1Minus(uint i, uint j) const {
 	return sigma1Plus(j, i);
 }
 
-inline COMPLEX_TYPE Model::a1PlusComplex(int i, int j) const {
+inline CUDA_COMPLEX_TYPE Model::a1PlusComplex(uint i, uint j) const {
 	return {a1Plus(i,j),0};
 }
 
-inline COMPLEX_TYPE Model::a1Complex(int i, int j) const {
+inline CUDA_COMPLEX_TYPE Model::a1Complex(uint i, uint j) const {
 	return {a1(i,j),0};
 }
 
 //------------------------ The second cavity ------------------------------
 
-inline FLOAT_TYPE Model::a2Plus(int i, int j) const {
+inline FLOAT_TYPE Model::a2Plus(uint i, uint j) const {
 	return (n2(i) != n2(j) + 1 || s2(i) != s2(j)) ?
 			0.0 : sqrtsOfPhotonNumbers[n2(j) + 1];
 }
 
-inline FLOAT_TYPE Model::a2(int i, int j) const {
+inline FLOAT_TYPE Model::a2(uint i, uint j) const {
 	return a2Plus(j, i);
 }
 
-inline FLOAT_TYPE Model::sigma2Plus(int i, int j) const {
+inline FLOAT_TYPE Model::sigma2Plus(uint i, uint j) const {
 	return (s2(j) != 0 || s2(i) != 1 || n2(i) != n2(j)) ? 0.0 : 1.0;
 }
 
-inline FLOAT_TYPE Model::sigma2Minus(int i, int j) const {
+inline FLOAT_TYPE Model::sigma2Minus(uint i, uint j) const {
 	return sigma2Plus(j, i);
 }
 
-inline COMPLEX_TYPE Model::a2PlusComplex(int i, int j) const {
+inline CUDA_COMPLEX_TYPE Model::a2PlusComplex(uint i, uint j) const {
 	return {a2Plus(i,j),0};
 }
 
-inline COMPLEX_TYPE Model::a2Complex(int i, int j) const {
+inline CUDA_COMPLEX_TYPE Model::a2Complex(uint i, uint j) const {
 	return {a2(i,j),0};
 }
 
 //------------------------ The third cavity ------------------------------
 
-inline FLOAT_TYPE Model::a3Plus(int i, int j) const {
+inline FLOAT_TYPE Model::a3Plus(uint i, uint j) const {
 	return (n3(i) != n3(j) + 1 || s3(i) != s3(j)) ?
 			0.0 : sqrtsOfPhotonNumbers[n3(j) + 1];
 }
 
-inline FLOAT_TYPE Model::a3(int i, int j) const {
+inline FLOAT_TYPE Model::a3(uint i, uint j) const {
 	return a3Plus(j, i);
 }
 
-inline FLOAT_TYPE Model::sigma3Plus(int i, int j) const {
+inline FLOAT_TYPE Model::sigma3Plus(uint i, uint j) const {
 	return (s3(j) != 0 || s3(i) != 1 || n3(i) != n3(j)) ? 0.0 : 1.0;
 }
 
-inline FLOAT_TYPE Model::sigma3Minus(int i, int j) const {
+inline FLOAT_TYPE Model::sigma3Minus(uint i, uint j) const {
 	return sigma3Plus(j, i);
 }
 
-inline COMPLEX_TYPE Model::a3PlusComplex(int i, int j) const {
+inline CUDA_COMPLEX_TYPE Model::a3PlusComplex(uint i, uint j) const {
 	return {a3Plus(i,j),0};
 }
 
-inline COMPLEX_TYPE Model::a3Complex(int i, int j) const {
+inline CUDA_COMPLEX_TYPE Model::a3Complex(uint i, uint j) const {
 	return {a3(i,j),0};
 }
 
 //----------------------------------------------------------
 
-inline COMPLEX_TYPE Model::L(int i, int j) const {
+inline CUDA_COMPLEX_TYPE Model::L(uint i, uint j) const {
 	// L.real = -kappa*(a1Plus.a1 + a2Plus.a2 + a3Plus.a3)
 	FLOAT_TYPE summands[basisSize];
-	for (int k = 0; k < basisSize; ++k) {
+	for (uint k = 0; k < basisSize; ++k) {
 		summands[k] = a1Plus(i, k) * a1(k, j) + a2Plus(i, k) * a2(k, j)
 				+ a3Plus(i, k) * a3(k, j);
 	}
@@ -158,9 +157,9 @@ inline COMPLEX_TYPE Model::L(int i, int j) const {
 	return {-kappa * real, -H(i,j)};
 }
 
-inline FLOAT_TYPE Model::H(int i, int j) const {
+inline FLOAT_TYPE Model::H(uint i, uint j) const {
 	FLOAT_TYPE summands[basisSize + 1]; // plus the term after the cycle
-	for (int k = 0; k < basisSize; ++k) {
+	for (uint k = 0; k < basisSize; ++k) {
 		summands[k] = deltaOmega
 				* (a1Plus(i, k) * a1(k, j) + a2Plus(i, k) * a2(k, j)
 						+ a3Plus(i, k) * a3(k, j)
@@ -193,7 +192,7 @@ inline CSR3Matrix *Model::createCSR3Matrix(CalcElemFuncP f,
 		std::string matrixName) const {
 
 	int totalValuesNumber = basisSize * basisSize;
-	COMPLEX_TYPE *denseMatrix = createMatrix(f, matrixName);
+	CUDA_COMPLEX_TYPE *denseMatrix = createMatrix(f, matrixName);
 
 	int job[] = { //
 			0, // to CSR
@@ -208,29 +207,31 @@ inline CSR3Matrix *Model::createCSR3Matrix(CalcElemFuncP f,
 
 	int info = 1;
 
-	complex_mkl_dnscsr(job, &basisSize, &basisSize, denseMatrix, &basisSize,
-			csr3Matrix->values, csr3Matrix->columns, csr3Matrix->rowIndex,
-			&info);
+	int basisSizeInt = basisSize;
+
+	complex_mkl_dnscsr(job, &basisSizeInt, &basisSizeInt,
+			denseMatrix, &basisSizeInt, csr3Matrix->values,
+			csr3Matrix->columns, csr3Matrix->rowIndex, &info);
 
 	delete[] denseMatrix;
 
 	return csr3Matrix;
 }
 
-inline COMPLEX_TYPE *Model::createMatrix(CalcElemFuncP f,
+inline CUDA_COMPLEX_TYPE *Model::createMatrix(CalcElemFuncP f,
 		std::string matrixName) const {
 #ifdef CHECK_SPARSITY
-	int nonZeroCounter = 0;
+	uint nonZeroCounter = 0;
 #endif
 
-	int totalElementsCount = basisSize * basisSize;
-	COMPLEX_TYPE *denseMatrix = new COMPLEX_TYPE[totalElementsCount];
-	for (int i = 0; i < basisSize; ++i) {
-		for (int j = 0; j < basisSize; ++j) {
+	uint totalElementsCount = basisSize * basisSize;
+	CUDA_COMPLEX_TYPE *denseMatrix = new CUDA_COMPLEX_TYPE[totalElementsCount];
+	for (uint i = 0; i < basisSize; ++i) {
+		for (uint j = 0; j < basisSize; ++j) {
 			denseMatrix[i * basisSize + j] = (this->*f)(i, j);
 #ifdef CHECK_SPARSITY
-			if (denseMatrix[i * basisSize + j].real != 0.0
-					|| denseMatrix[i * basisSize + j].imag != 0.0) {
+			if (denseMatrix[i * basisSize + j].x != 0.0
+					|| denseMatrix[i * basisSize + j].y != 0.0) {
 				++nonZeroCounter;
 			}
 #endif

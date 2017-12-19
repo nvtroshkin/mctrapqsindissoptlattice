@@ -25,22 +25,35 @@ static const int SAMPLES_BETWEEN_PROGRESS = 10;
  */
 #define CHECK_SPARSITY
 
+/**
+ * Please, keep in mind that it is very GPU-specific. My GPU's multiprocessors can
+ * hold only 1 warp (32 threads) at once, others can more (one thread - one core).
+ * Also one warp may be not sufficient to get 100% load.
+ *
+ * It is better to have it is a factor of the basis size, because matrices and vectors
+ * are processed by tiles (32 threads per warp and 8 cores per SM - should be multiple
+ * of it too)
+ */
+static const uint THREADS_PER_BLOCK = 32;
+
+/**
+ * One block = one trajectory. If it is small - there are many separate kernel
+ * invocations with corresponding start up expenses. If there are many - fewer resources
+ * are available for each thread on the GPU.
+ *
+ * It is better to have it as a factor of the samples number and as a multiple of SM's
+ * number
+ */
+static const uint N_BLOCKS = 32;
+
 //Evaluation of each sample is performed beginning at 0s and ending at the end time.
 //Increasing the END_TIME value is necessary to caught the stationary evaluation
 //phase
 static const FLOAT_TYPE TIME_STEP_SIZE = 0.000001;
-static const int TIME_STEPS_NUMBER = 1000;		//the total number of steps
-static const int MONTE_CARLO_SAMPLES_NUMBER = 100;
+static const int TIME_STEPS_NUMBER = 10;		//the total number of steps
+static const int MONTE_CARLO_SAMPLES_NUMBER = 32;
 
 static const FLOAT_TYPE EVAL_TIME = TIME_STEP_SIZE * TIME_STEPS_NUMBER;
-
-//change to use another pseudo random sequence
-static const int RANDSEED = 777;
-/*
- * the size of the random numbers sequence available for each thread -
- * an exception is thrown if all numbers are used
- */
-static const int RND_NUM_BUFF_SIZE = 128 * 1024;
 
 //----------------debug info--------------------------------
 

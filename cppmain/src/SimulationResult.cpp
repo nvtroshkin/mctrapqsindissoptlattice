@@ -71,7 +71,7 @@ inline ImpreciseValue *SimulationResult::getAvgPhotons(
                                &norm2);
 
         //store for the variance
-        meanPhotonNumbers[i] = norm2.real;
+        meanPhotonNumbers[i] = norm2.x;
     }
 
     FLOAT_TYPE meanPhotonsNumber;
