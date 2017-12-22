@@ -4,8 +4,9 @@
  */
 
 #include <Model.h>
-#include <utilities.h>
 #include <mkl-constants.h>
+#include <algorithm>
+#include <iostream>
 
 Model::Model(uint atom1SSize, uint atom2SSize, uint atom3SSize,
 		uint field1SSize, uint field2SSize, uint field3SSize,
@@ -189,7 +190,7 @@ inline FLOAT_TYPE Model::H(uint i, uint j) const {
 }
 
 inline CSR3Matrix *Model::createCSR3Matrix(CalcElemFuncP f,
-		std::string matrixName) const {
+		const char * matrixName) const {
 
 	int totalValuesNumber = basisSize * basisSize;
 	CUDA_COMPLEX_TYPE *denseMatrix = createMatrix(f, matrixName);
@@ -219,7 +220,7 @@ inline CSR3Matrix *Model::createCSR3Matrix(CalcElemFuncP f,
 }
 
 inline CUDA_COMPLEX_TYPE *Model::createMatrix(CalcElemFuncP f,
-		std::string matrixName) const {
+		const char * matrixName) const {
 #ifdef CHECK_SPARSITY
 	uint nonZeroCounter = 0;
 #endif

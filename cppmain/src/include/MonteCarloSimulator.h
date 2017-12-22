@@ -19,11 +19,13 @@ class MonteCarloSimulator {
 	Model &model;
 
 	//used as initial state
-	COMPLEX_TYPE * const groundState;
+	CUDA_COMPLEX_TYPE * const groundState;
 
 public:
 	__host__
-	MonteCarloSimulator(uint samplesNumber, Model &model);__host__
+	MonteCarloSimulator(uint samplesNumber, Model &model);
+
+	__host__
 	~MonteCarloSimulator();
 
 	__host__

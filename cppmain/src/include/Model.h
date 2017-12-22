@@ -12,7 +12,6 @@
 #include <eval-params.h>
 #include <precision-definition.h>
 #include <CSR3Matrix.h>
-#include <string>
 
 class Model {
 
@@ -70,9 +69,9 @@ class Model {
 
 	CUDA_COMPLEX_TYPE a3Complex(uint i, uint j) const;
 
-	CSR3Matrix *createCSR3Matrix(CalcElemFuncP f, std::string matrixName) const;
+	CSR3Matrix *createCSR3Matrix(CalcElemFuncP f, const char * matrixName) const;
 
-	CUDA_COMPLEX_TYPE *createMatrix(CalcElemFuncP f, std::string matrixName) const;
+	CUDA_COMPLEX_TYPE *createMatrix(CalcElemFuncP f, const char * matrixName) const;
 
 	CSR3Matrix *createA1InCSR3();
 	CSR3Matrix *createA1PlusInCSR3();

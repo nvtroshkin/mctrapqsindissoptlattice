@@ -98,7 +98,7 @@ CUDA_COMPLEX_TYPE * a1CSR3Values, int * a1CSR3Columns, int * a1CSR3RowIndex,
 			svNormThresholdPtr[blockIdx.x], sharedFloatPtr[blockIdx.x],
 			sharedPointerPtr[blockIdx.x], k1[blockIdx.x], k2[blockIdx.x],
 			k3[blockIdx.x], k4[blockIdx.x], prevState[blockIdx.x],
-			curState[blockIdx.x]);
+			curState[blockIdx.x]/*, NULL, 0*/);
 	solver.solve();
 }
 
@@ -159,18 +159,19 @@ __host__ SimulationResult *MonteCarloSimulator::simulate(FLOAT_TYPE timeStep,
 			&a3CSR3ColumnsDevPtr, &a3CSR3RowIndexDevPtr);
 
 	//block-locals : one per block
-	delete [] initDev2DArray(svNormThresholdDevPtr, nBlocks, 1);
-	delete [] initDev2DArray(sharedFloatDevPtr, nBlocks, 1);
-	delete [] initDev2DArray(sharedPointerDevPtr, nBlocks, 1);
+	delete[] initDev2DArray(svNormThresholdDevPtr, nBlocks, 1);
+	delete[] initDev2DArray(sharedFloatDevPtr, nBlocks, 1);
+	delete[] initDev2DArray(sharedPointerDevPtr, nBlocks, 1);
 
-	delete [] initDev2DArray(k1DevPtr, nBlocks, basisSize);
-	delete [] initDev2DArray(k2DevPtr, nBlocks, basisSize);
-	delete [] initDev2DArray(k3DevPtr, nBlocks, basisSize);
-	delete [] initDev2DArray(k4DevPtr, nBlocks, basisSize);
+	delete[] initDev2DArray(k1DevPtr, nBlocks, basisSize);
+	delete[] initDev2DArray(k2DevPtr, nBlocks, basisSize);
+	delete[] initDev2DArray(k3DevPtr, nBlocks, basisSize);
+	delete[] initDev2DArray(k4DevPtr, nBlocks, basisSize);
 
 	CUDA_COMPLEX_TYPE ** prevStateDevPtrsHostArray = initDev2DArray(
 			prevStateDevPtr, nBlocks, basisSize);
-	CUDA_COMPLEX_TYPE ** curStateDevPtrsHostArray = initDev2DArray(curStateDevPtr, nBlocks, basisSize);
+	CUDA_COMPLEX_TYPE ** curStateDevPtrsHostArray = initDev2DArray(
+			curStateDevPtr, nBlocks, basisSize);
 
 //	CUDA_COMPLEX_TYPE *rowMajorL = model.getL();
 //
@@ -213,7 +214,7 @@ simulate0<<<actualNBlocks, threadsPerBlock>>>((int) basisSize, timeStep, (int) n
 			k2DevPtr, k3DevPtr, k4DevPtr, prevStateDevPtr, curStateDevPtr);
 
 	//check for the kernel errors
-		getLastCudaError("Monte-Carlo simulation failed");
+				getLastCudaError("Monte-Carlo simulation failed");
 
 		resultIndex = n * nBlocks;
 		for (int i = 0; i < actualNBlocks; ++i) {
@@ -224,8 +225,12 @@ simulate0<<<actualNBlocks, threadsPerBlock>>>((int) basisSize, timeStep, (int) n
 
 	//freeing resources
 	cudaDeviceReset();
-	delete [] prevStateDevPtrsHostArray;
-	delete [] curStateDevPtrsHostArray;
+	delete[] prevStateDevPtrsHostArray;
+	delete[] curStateDevPtrsHostArray;
+
+//#if defined(DEBUG_CONTINUOUS) || defined(DEBUG_JUMPS)
+//	print(std::cout, "Result", result, basisSize, samplesNumber);
+//#endif
 
 	SimulationResult *simulationResult = new SimulationResult(result,
 			samplesNumber, model);

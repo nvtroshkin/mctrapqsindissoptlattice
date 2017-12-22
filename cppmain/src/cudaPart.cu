@@ -9,4 +9,8 @@
 #include "Solver.cpp"
 #include "MonteCarloSimulator.cpp"
 
+#ifdef TEST_MODE
+#include "../../cpptest/src/SolverTest0.cpp"
+#endif
+
 

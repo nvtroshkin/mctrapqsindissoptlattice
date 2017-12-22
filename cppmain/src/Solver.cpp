@@ -4,7 +4,6 @@
  */
 
 #include "include/precision-definition.h"
-#include "include/Model.h"
 #include "include/Solver.h"
 #include "include/eval-params.h"
 
@@ -25,6 +24,9 @@ extern void __syncthreads();
 extern float rsqrtf(float f);
 #endif
 
+#ifdef TEST_MODE
+__host__
+#endif
 __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
 CUDA_COMPLEX_TYPE * l, int a1CSR3RowsNum,
 CUDA_COMPLEX_TYPE * a1CSR3Values, int * a1CSR3Columns, int * a1CSR3RowIndex,
@@ -38,8 +40,9 @@ CUDA_COMPLEX_TYPE * a1CSR3Values, int * a1CSR3Columns, int * a1CSR3RowIndex,
 		CUDA_COMPLEX_TYPE *k1,
 		CUDA_COMPLEX_TYPE *k2,
 		CUDA_COMPLEX_TYPE *k3, CUDA_COMPLEX_TYPE *k4,
-		CUDA_COMPLEX_TYPE *prevState, CUDA_COMPLEX_TYPE *curState) :
-		tStep(timeStep), tHalfStep(0.5 * timeStep), tSixthStep(timeStep / 6.0), ntimeSteps(
+		CUDA_COMPLEX_TYPE *prevState, CUDA_COMPLEX_TYPE *curState/*, char * log,
+		 uint logMaxSize*/) :
+		tStep(timeStep), tHalfStep(0.5 * timeStep), tSixthStep(timeStep / 6.0), nTimeSteps(
 				nTimeSteps), basisSize(basisSize),
 #ifdef L_SPARSE
 				lCSR3(
@@ -56,7 +59,7 @@ CUDA_COMPLEX_TYPE * a1CSR3Values, int * a1CSR3Columns, int * a1CSR3RowIndex,
 						a3CSR3RowIndex), svNormThresholdPtr(svNormThresholdPtr), sharedFloatPtr(
 						sharedFloatPtr), sharedPointerPtr(sharedPointerPtr), k1(
 						k1), k2(k2), k3(k3), k4(k4), prevState(prevState), curState(
-						curState) {
+						curState), log(log)/*, logMaxSize(logMaxSize), logSize(0)*/{
 }
 
 /**
@@ -73,14 +76,16 @@ __device__ void Solver::solve() {
 		ULONG_LONG_MAX / gridDim.x * blockIdx.x, 0ull, 0ull, &state);
 		//get a random number for the calculation of the random waiting time
 		//of the next jump
-		*svNormThresholdPtr = curand_uniform(&state);
+		*svNormThresholdPtr = getNextRandomFloat();
 	}
 
 	//Calculate each sample by the time axis
-	for (int i = 0; i < ntimeSteps; ++i) {
+	for (int i = 0; i < nTimeSteps; ++i) {
 #if defined(DEBUG_CONTINUOUS) || defined(DEBUG_JUMPS)
-		shouldPrintDebugInfo = (i % TIME_STEPS_BETWEEN_DEBUG == 0);
-		LOG_IF_APPROPRIATE(consoleStream << "Solver: step " << i << endl);
+		if(threadIdx.x == 0) {
+			shouldPrintDebugInfo = (i % TIME_STEPS_BETWEEN_DEBUG == 0);
+			LOG_IF_APPROPRIATE("Step number" + *svNormThresholdPtr);
+		}
 #endif
 
 		//Before the next jump there is deterministic evolution guided by
@@ -90,7 +95,7 @@ __device__ void Solver::solve() {
 		//at t(i+1)...
 		//write the f function
 
-		make4thOrderRungeKuttaStep();
+		parallelRungeKuttaStep();
 
 		//...falls below the threshold, which is a random number
 		//uniformly distributed between [0,1] - svNormThreshold
@@ -117,11 +122,11 @@ __device__ void Solver::solve() {
 			<< ", current = " << norm2.real << endl;
 #endif
 
-			makeJump();
+			parallelMakeJump();
 
 			if (threadIdx.x == 0) {
 				//update the random time
-				*svNormThresholdPtr = curand_uniform(&state);
+				*svNormThresholdPtr = getNextRandomFloat();
 			}
 #ifdef DEBUG_JUMPS
 			consoleStream << "New norm^2 threshold = " << svNormThreshold
@@ -144,23 +149,23 @@ __device__ void Solver::solve() {
 	prevState = tempPointer;
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "Psi(n+1)", curState, basisSize));
+//	LOG_IF_APPROPRIATE(print(consoleStream, "Psi(n+1)", curState, basisSize));
 #endif
 
 	//final state normalization
 	parallelNormalizeVector(curState);
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(
-			print(consoleStream, "Normed Psi(n+1)", curState, basisSize));
+//	LOG_IF_APPROPRIATE(
+//			print(consoleStream, "Normed Psi(n+1)", curState, basisSize));
 #endif
 }
 
-__device__ inline void Solver::make4thOrderRungeKuttaStep() {
+__device__ inline void Solver::parallelRungeKuttaStep() {
 	//uses nextState as a temporary storage vector
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "prevState", prevState, basisSize));
+//	LOG_IF_APPROPRIATE(print(consoleStream, "prevState", prevState, basisSize));
 #endif
 
 	//See: https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
@@ -168,7 +173,7 @@ __device__ inline void Solver::make4thOrderRungeKuttaStep() {
 	parallelMultLV(prevState, k1);
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "k1", k1, basisSize));
+//	LOG_IF_APPROPRIATE(print(consoleStream, "k1", k1, basisSize));
 #endif
 
 	//k2 = f(t_n + h/2, y_n + h/2 * k1);
@@ -178,7 +183,7 @@ __device__ inline void Solver::make4thOrderRungeKuttaStep() {
 	parallelMultLV(curState, k2);
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "k2", k2, basisSize));
+//	LOG_IF_APPROPRIATE(print(consoleStream, "k2", k2, basisSize));
 #endif
 
 	//k3 = f(t_n + h/2, y_n + h/2 * k2)
@@ -188,7 +193,7 @@ __device__ inline void Solver::make4thOrderRungeKuttaStep() {
 	parallelMultLV(curState, k3);
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "k3", k3, basisSize));
+//	LOG_IF_APPROPRIATE(print(consoleStream, "k3", k3, basisSize));
 #endif
 
 	//k4 = f(t_n + h, y_n + h * k3);
@@ -198,7 +203,7 @@ __device__ inline void Solver::make4thOrderRungeKuttaStep() {
 	parallelMultLV(curState, k4);
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "k4", k4, basisSize));
+//	LOG_IF_APPROPRIATE(print(consoleStream, "k4", k4, basisSize));
 #endif
 
 	//y_(n+1) = y_n + (h/6)(k1 + 2k2 + 2k3 + k4)
@@ -232,7 +237,7 @@ __device__ inline void Solver::parallelCalcCurrentY() {
 	__syncthreads();
 }
 
-__device__ inline void Solver::makeJump() {
+__device__ inline void Solver::parallelMakeJump() {
 //then a jump is occurred between t(i) and t(i+1)
 //let's suppose it was at time t(i)
 
@@ -258,26 +263,24 @@ __device__ inline void Solver::makeJump() {
 //calculate probabilities of each jump
 		FLOAT_TYPE n2Sum = n12 + n22 + n32;
 		FLOAT_TYPE p1 = n12 / n2Sum;
-		FLOAT_TYPE p12 =
-				p1
-						+ n22 / n2Sum;	//two first cavities together
+		FLOAT_TYPE p12 = (n12 + n22) / n2Sum;	//two first cavities together
 
 #ifdef DEBUG_JUMPS
-						print(consoleStream, "If jump will be in the first cavity", k1, basisSize);
-						consoleStream << "it's norm^2: " << n12.real << endl;
+		print(consoleStream, "If jump will be in the first cavity", k1, basisSize);
+		consoleStream << "it's norm^2: " << n12.real << endl;
 
-						print(consoleStream, "If jump will be in the second cavity", k2, basisSize);
-						consoleStream << "it's norm^2: " << n22.real << endl;
+		print(consoleStream, "If jump will be in the second cavity", k2, basisSize);
+		consoleStream << "it's norm^2: " << n22.real << endl;
 
-						print(consoleStream, "If jump will be in the third cavity", k3, basisSize);
-						consoleStream << "it's norm^2: " << n32.real << endl;
+		print(consoleStream, "If jump will be in the third cavity", k3, basisSize);
+		consoleStream << "it's norm^2: " << n32.real << endl;
 
-						consoleStream << "Probabilities of the jumps: in the first = " << p1
-						<< ", (the first + the second) = " << p12 << ", third = " << 1-p12 << endl;
+		consoleStream << "Probabilities of the jumps: in the first = " << p1
+		<< ", (the first + the second) = " << p12 << ", third = " << 1-p12 << endl;
 #endif
 
 //choose which jump is occurred,
-		FLOAT_TYPE rnd = curand_uniform(&state);
+		FLOAT_TYPE rnd = getNextRandomFloat();
 
 		if (rnd < p1) {
 #ifdef DEBUG_JUMPS
@@ -310,8 +313,9 @@ __device__ inline void Solver::makeJump() {
 #endif
 }
 
-__device__ inline void Solver::parallelMultLV(CUDA_COMPLEX_TYPE *vector,
-CUDA_COMPLEX_TYPE *result) {
+__device__ inline void Solver::parallelMultLV(
+		const CUDA_COMPLEX_TYPE * const vector,
+		CUDA_COMPLEX_TYPE *result) {
 #ifdef L_SPARSE
 	//write down the sparse branch
 	complex_mkl_cspblas_csrgemv("n", &basisSize, lCSR3->values, lCSR3->rowIndex,
@@ -328,9 +332,9 @@ CUDA_COMPLEX_TYPE *result) {
 }
 
 __device__ inline void Solver::parallelMultMatrixVector(
-		const CUDA_COMPLEX_TYPE * const matrix, const int &rows,
-		const int &columns, CUDA_COMPLEX_TYPE *vector,
-		CUDA_COMPLEX_TYPE *result) {
+		const CUDA_COMPLEX_TYPE * const matrix, const int rows,
+		const int columns, const CUDA_COMPLEX_TYPE * const vector,
+		CUDA_COMPLEX_TYPE * const result) {
 	//waiting for the main thread
 	__syncthreads();
 
@@ -343,12 +347,16 @@ __device__ inline void Solver::parallelMultMatrixVector(
 	for (uint i = 0; i < blocksPerVector; ++i) {
 		index = threadIdx.x + i * blockDim.x;
 		if (index < rows) {
+			//clear the vector
+			result[index].x = 0.0;
+			result[index].y = 0.0;
+
 			rowStartIndex = index * columns;
 #pragma unroll
 			for (uint j = 0; j < columns; ++j) {
-				result[j].x = matrix[rowStartIndex + j].x * vector[j].x
+				result[index].x += matrix[rowStartIndex + j].x * vector[j].x
 						- matrix[rowStartIndex + j].y * vector[j].y;
-				result[j].y = matrix[rowStartIndex + j].x * vector[j].y
+				result[index].y += matrix[rowStartIndex + j].x * vector[j].y
 						+ matrix[rowStartIndex + j].y * vector[j].x;
 			}
 		}
@@ -363,7 +371,7 @@ __device__ inline void Solver::parallelMultCSR3MatrixVector(
 		const CUDA_COMPLEX_TYPE * const csr3MatrixValues,
 		const int * const csr3MatrixColumns,
 		const int * const csr3MatrixRowIndex,
-		CUDA_COMPLEX_TYPE *vector, CUDA_COMPLEX_TYPE *result) {
+		const CUDA_COMPLEX_TYPE * const vector, CUDA_COMPLEX_TYPE * result) {
 	//gather all threads
 	__syncthreads();
 
@@ -376,9 +384,8 @@ __device__ inline void Solver::parallelMultCSR3MatrixVector(
 		if (row < csr3MatrixRowsNum) {
 			uint row_begin = csr3MatrixRowIndex[row];
 			uint row_end = csr3MatrixRowIndex[row + 1];
-			result[row] = multiplyRow(row_end - row_begin,
-					csr3MatrixColumns + row_begin, csr3MatrixValues + row_begin,
-					vector);
+			multiplyRow(row_end - row_begin, csr3MatrixColumns + row_begin,
+					csr3MatrixValues + row_begin, vector, result[row]);
 		}
 	}
 
@@ -386,23 +393,24 @@ __device__ inline void Solver::parallelMultCSR3MatrixVector(
 	__syncthreads();
 }
 
-__device__ inline CUDA_COMPLEX_TYPE Solver::multiplyRow(uint rowsize,
+__device__ inline void Solver::multiplyRow(uint rowsize,
 		const int * const columnIndices,
 		const CUDA_COMPLEX_TYPE * const matrixValues,
-		const CUDA_COMPLEX_TYPE * const vector) {
-	CUDA_COMPLEX_TYPE sum;
-
+		const CUDA_COMPLEX_TYPE * const vector,
+		CUDA_COMPLEX_TYPE &result) {
+	result.x = 0.0;
+	result.y = 0.0;
 #pragma unroll
 	for (uint column = 0; column < rowsize; ++column) {
-		sum.x += matrixValues[column].x * vector[columnIndices[column]].x
+		result.x += matrixValues[column].x * vector[columnIndices[column]].x
 				- matrixValues[column].y * vector[columnIndices[column]].y;
-		sum.y += matrixValues[column].x * vector[columnIndices[column]].y
+		result.y += matrixValues[column].x * vector[columnIndices[column]].y
 				+ matrixValues[column].y * vector[columnIndices[column]].x;
 	}
-	return sum;
 }
 
-__device__ inline FLOAT_TYPE Solver::calcNormSquare(CUDA_COMPLEX_TYPE * v) {
+__device__ inline FLOAT_TYPE Solver::calcNormSquare(
+		const CUDA_COMPLEX_TYPE * const v) {
 	FLOAT_TYPE temp = 0.0;
 	for (int i = 0; i < basisSize; ++i) {
 		//vary bad
@@ -412,8 +420,9 @@ __device__ inline FLOAT_TYPE Solver::calcNormSquare(CUDA_COMPLEX_TYPE * v) {
 	return temp;
 }
 
-__device__ inline void Solver::parallelCalcAlphaVector(const FLOAT_TYPE &alpha,
-CUDA_COMPLEX_TYPE * vector, CUDA_COMPLEX_TYPE * result) {
+__device__ inline void Solver::parallelCalcAlphaVector(const FLOAT_TYPE alpha,
+		const CUDA_COMPLEX_TYPE * const vector,
+		CUDA_COMPLEX_TYPE * const result) {
 	//waiting for the main thread
 	__syncthreads();
 
@@ -435,8 +444,9 @@ CUDA_COMPLEX_TYPE * vector, CUDA_COMPLEX_TYPE * result) {
 }
 
 __device__ inline void Solver::parallelCalcV1PlusAlphaV2(
-CUDA_COMPLEX_TYPE * v1, const FLOAT_TYPE &alpha, CUDA_COMPLEX_TYPE * v2,
-CUDA_COMPLEX_TYPE * result) {
+		const CUDA_COMPLEX_TYPE * const v1, const FLOAT_TYPE alpha,
+		const CUDA_COMPLEX_TYPE * const v2,
+		CUDA_COMPLEX_TYPE * const result) {
 	//waiting for the main thread
 	__syncthreads();
 
@@ -457,8 +467,9 @@ CUDA_COMPLEX_TYPE * result) {
 	__syncthreads();
 }
 
-__device__ inline void Solver::parallelCopy(CUDA_COMPLEX_TYPE * source,
-CUDA_COMPLEX_TYPE * dest) {
+__device__ inline void Solver::parallelCopy(
+		const CUDA_COMPLEX_TYPE * const source,
+		CUDA_COMPLEX_TYPE * const dest) {
 	//waiting for the main thread
 	__syncthreads();
 
@@ -487,6 +498,55 @@ CUDA_COMPLEX_TYPE *stateVector) {
 
 	parallelCalcAlphaVector(*sharedFloatPtr, stateVector, stateVector);
 }
+
+#ifdef TEST_MODE
+__device__ const FLOAT_TYPE _randomNumbers[7]= {
+	0.99, // a jump
+	0.5,// the second cavity wins
+	0.98,// a jump
+	0.1,// the first cavity wins
+	0.99,// a jump
+	0.9,// the third cavity wins
+	0.0// next threshold (impossible to reach)
+};
+
+__device__ uint _randomNumberCounter = 0;
+#endif
+
+__device__ inline FLOAT_TYPE Solver::getNextRandomFloat() {
+#ifdef TEST_MODE
+	return _randomNumbers[_randomNumberCounter++];
+#else
+	return curand_uniform(&state);
+#endif
+}
+
+//__device__ uint strlen(const char * str) {
+//	uint len = 0;
+//	while (str[len] != '\0') {
+//		++len;
+//	}
+//}
+
+//__device__ uint strcat(const char * str1, const char * str2) {
+//
+//}
+
+//__device__ inline void Solver::printLog(const char * str) {
+//	if (threadIdx.x == 0) {
+//		uint strLen = strlen(str);
+//		if (logMaxSize > logSize + strLen) {
+//			//if there is enough space
+//			for (int i = 0; i < strLen; ++i) {
+//				log[logSize + i] = str[i];
+//			}
+//
+//			logSize += strLen;
+//
+//			log[logSize] = '\0';
+//		}
+//	}
+//}
 
 //template<typename T, const uint blk>
 //__device__ void multMatrixVector(const T * __restrict__ matrix, const T * __restrict__ vector,

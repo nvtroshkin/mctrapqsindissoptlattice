@@ -8,7 +8,6 @@
 #ifndef SRC_DEFINITIONS_H_
 #define SRC_DEFINITIONS_H_
 
-#include <RndNumProvider.h>
 #include <cmath>
 #include <iostream>
 #include "gtest/gtest.h"
@@ -18,18 +17,32 @@
 
 using namespace testing;
 
+#if defined(SINGLE_PRECISION)
+static const int RIGHT_DIGITS = 6;
+#elif defined(DOUBLE_PRECISION)
+static const int RIGHT_DIGITS = 14;
+#endif
+
 #define ASSERT_COMPLEX(c, expReal, expImagine)\
 {											\
-	ASSERT_FLOAT_EQ(c.real, expReal);\
-	ASSERT_FLOAT_EQ(c.imag, expImagine);\
+	ASSERT_FLOAT_EQ(c.x, expReal);\
+	ASSERT_FLOAT_EQ(c.y, expImagine);\
 }
 
-MATCHER_P (ComplexNumberEquals, a, ""){
+#define FLOAT_PRECISION 12
+
+struct FancyStream: public std::ostringstream {
+	FancyStream() {
+		(*this) << std::scientific << std::setprecision(FLOAT_PRECISION);
+	}
+};
+
+MATCHER_P (ComplexNumberEquals, a, "") {
 //	*result_listener << "where the remainder is " << (arg % n);
-return a.real == arg.real && a.imag == arg.imag;
+	return a.x == arg.x && a.y == arg.y;
 }
 
-int getDecimalExponent(FLOAT_TYPE f) {
+inline int getDecimalExponent(FLOAT_TYPE f) {
 	int exp = 0;
 	if (f > 1.0) {
 		while (f >= 10) {
@@ -46,7 +59,7 @@ int getDecimalExponent(FLOAT_TYPE f) {
 	return exp;
 }
 
-bool areEqualToNDigits(FLOAT_TYPE a, FLOAT_TYPE b, int nDigits) {
+inline bool areEqualToNDigits(FLOAT_TYPE a, FLOAT_TYPE b, int nDigits) {
 	if (a == b) {
 		return true;
 	}
@@ -59,53 +72,60 @@ bool areEqualToNDigits(FLOAT_TYPE a, FLOAT_TYPE b, int nDigits) {
 	return diffExp <= maxExp && std::abs(maxExp - diffExp) >= nDigits;
 }
 
-bool areEqualToNDigits(COMPLEX_TYPE a, COMPLEX_TYPE b, int nDigits) {
-	return areEqualToNDigits(a.real, b.real, nDigits)
-			&& areEqualToNDigits(a.imag, b.imag, nDigits);
+inline bool areEqualToNDigits(CUDA_COMPLEX_TYPE a, CUDA_COMPLEX_TYPE b,
+		int nDigits) {
+	return areEqualToNDigits(a.x, b.x, nDigits)
+			&& areEqualToNDigits(a.y, b.y, nDigits);
 }
 
-MATCHER_P (ComplexEq8digits, a, ""){
+MATCHER_P (ComplexEq8digits, a, "") {
 //	*result_listener << "where the remainder is " << (arg % n);
-return areEqualToNDigits(a,arg,8);
+	return areEqualToNDigits(a,arg,8);
 }
 
-MATCHER_P (FloatEq8digits, a, ""){
-return areEqualToNDigits(a, arg, 8);
+MATCHER_P (FloatEq8digits, a, "") {
+	return areEqualToNDigits(a, arg, 8);
 }
 
-MATCHER_P2 (FloatEqNdigits, a, n, ""){
-return areEqualToNDigits(a, arg, n);
+MATCHER_P2 (FloatEqNdigits, a, n, "") {
+	return areEqualToNDigits(a, arg, n);
 }
 
-		MATCHER_P4 (EqMatrixComplexElementAt, array, i,j, n,std::string("element at (") + std::to_string(i) +
-				", " + std::to_string(j) + ") " + (negation ? "is not" : "is") + "(" +
-				std::to_string(array[i][j].real) + ", " + std::to_string(array[i][j].imag) + " i ) within " +
-				std::to_string(n) + " digits"){
-return areEqualToNDigits(arg, array[i][j], n);
+MATCHER_P4 (EqMatrixComplexElementAt, array, i,j, n,
+		dynamic_cast<std::ostringstream&>(FancyStream() << std::string("element at (") << i <<
+				", " << j << ") " << (negation ? "is not" : "is") << "(" <<
+				array[i][j].x << ", " << array[i][j].y << " i ) within " <<
+				n << " digits").str()) {
+	return areEqualToNDigits(arg, array[i][j], n);
 }
 
-		MATCHER_P3 (EqArrayComplexElementAt, array, i,n,std::string("element at (") + std::to_string(i) + ") " + (negation ? "is not" : "is") + "(" +
-				std::to_string(array[i].real) + ", " + std::to_string(array[i].imag) + " i ) within " +
-				std::to_string(n) + " digits"){
-return areEqualToNDigits(arg, array[i], n);
+MATCHER_P3 (EqArrayComplexElementAt, array, i,n,
+		dynamic_cast<std::ostringstream&>(FancyStream() << "element at (" << i << ") " << (negation ? "is not" : "is") << "("
+				<< array[i].x << ", " << array[i].y << " i ) within "
+				<< n << " digits").str()) {
+	return areEqualToNDigits(arg, array[i], n);
 }
 
-		MATCHER_P4 (EqMatrixElementAt, array, i,j, n,std::string("element at (") + std::to_string(i) +
-				", " + std::to_string(j) + ") " + (negation ? "is not" : "is") +
-				std::to_string(array[i][j]) +" within " +
-				std::to_string(n) + " digits"){
-return areEqualToNDigits(arg, array[i][j], n);
+MATCHER_P4 (EqMatrixElementAt, array, i,j, n,
+		dynamic_cast<std::ostringstream&>(FancyStream() << "element at (" <<i
+				<<", " <<j << ") " << (negation ? "is not" : "is")
+				<<array[i][j]<<" within "
+				<<n << " digits").str()) {
+	return areEqualToNDigits(arg, array[i][j], n);
 }
 
-::std::ostream& operator<<(::std::ostream& os, const COMPLEX_TYPE& c) {
-	return os << c.real << (c.imag < 0 ? "" : " + ") << c.imag << "i";
+inline ::std::ostream& operator<<(::std::ostream& os,
+		const CUDA_COMPLEX_TYPE& c) {
+	return os
+			<< dynamic_cast<std::ostringstream&>(FancyStream() << c.x
+					<< (c.y < 0 ? "" : " + ") << c.y << "i").str();
 }
 
-class NoJumpRndNumProvider: public RndNumProvider {
-public:
-	void initBuffer(int streamId, FLOAT_TYPE *buffer, int bufferSize) override {
-		buffer[0] = 0.0;
-	}
-} NO_JUMP_RND_NUM_PROVIDER;
+//class NoJumpRndNumProvider: public RndNumProvider {
+//public:
+//	void initBuffer(int streamId, FLOAT_TYPE *buffer, int bufferSize) override {
+//		buffer[0] = 0.0;
+//	}
+//} NO_JUMP_RND_NUM_PROVIDER;
 
 #endif /* SRC_DEFINITIONS_H_ */

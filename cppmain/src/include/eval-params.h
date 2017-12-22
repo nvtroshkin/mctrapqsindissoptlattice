@@ -74,6 +74,11 @@ static const int TIME_STEPS_BETWEEN_DEBUG = 1000;
  */
 //#define DEBUG_JUMPS
 
-//----------------------------------------------------------
+//----------------Tests-----------------------------------------
+
+/**
+ * Changes code so it could be easily tested - pass as a parameter or define in tests
+ */
+//#define TEST_MODE
 
 #endif /* SRC_EVAL_PARAMS_H_ */

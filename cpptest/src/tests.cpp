@@ -1,5 +1,6 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
+#include "cuda_runtime.h"
 
 #include "definitions.h"
 
@@ -11,5 +12,10 @@
 int main(int argc, char **argv) {
 	printf("Running main() from gtest_main.cc\n");
 	testing::InitGoogleTest(&argc, argv);
-	return RUN_ALL_TESTS();
+	std::cout << std::setprecision(12);
+	int result = RUN_ALL_TESTS();
+
+	cudaDeviceReset();
+
+	return result;
 }
