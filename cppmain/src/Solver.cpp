@@ -7,7 +7,6 @@
 #include "include/Solver.h"
 #include "include/eval-params.h"
 
-#include "cuda_runtime.h"
 #include "curand_kernel.h"
 #include "math.h"
 
@@ -16,31 +15,25 @@
 #define LOG_IF_APPROPRIATE(a) if(shouldPrintDebugInfo) (a)
 #endif
 
-//for the syntax checker
-#ifndef __CUDA_ARCH__
-extern const dim3 gridDim;
-extern const uint3 blockIdx;
-extern void __syncthreads();
-extern float rsqrtf(float f);
-#endif
-
 #ifdef TEST_MODE
 __host__
 #endif
 __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
-CUDA_COMPLEX_TYPE * l, int a1CSR3RowsNum,
-CUDA_COMPLEX_TYPE * a1CSR3Values, int * a1CSR3Columns, int * a1CSR3RowIndex,
-		int a2CSR3RowsNum,
-		CUDA_COMPLEX_TYPE * a2CSR3Values, int * a2CSR3Columns,
-		int * a2CSR3RowIndex, int a3CSR3RowsNum,
-		CUDA_COMPLEX_TYPE * a3CSR3Values, int * a3CSR3Columns,
-		int * a3CSR3RowIndex,
+		const CUDA_COMPLEX_TYPE * l, int a1CSR3RowsNum,
+		const CUDA_COMPLEX_TYPE * a1CSR3Values, const int * a1CSR3Columns,
+		const int * a1CSR3RowIndex, int a2CSR3RowsNum,
+		const CUDA_COMPLEX_TYPE * a2CSR3Values, const int * a2CSR3Columns,
+		const int * a2CSR3RowIndex, int a3CSR3RowsNum,
+		const CUDA_COMPLEX_TYPE * a3CSR3Values, const int * a3CSR3Columns,
+		const int * a3CSR3RowIndex,
+		//non-const
 		FLOAT_TYPE * svNormThresholdPtr,
-		FLOAT_TYPE * sharedFloatPtr, CUDA_COMPLEX_TYPE ** sharedPointerPtr,
-		CUDA_COMPLEX_TYPE *k1,
-		CUDA_COMPLEX_TYPE *k2,
+		FLOAT_TYPE * sharedFloatPtr,
+		CUDA_COMPLEX_TYPE ** sharedPointerPtr,
+		CUDA_COMPLEX_TYPE *k1, CUDA_COMPLEX_TYPE *k2,
 		CUDA_COMPLEX_TYPE *k3, CUDA_COMPLEX_TYPE *k4,
-		CUDA_COMPLEX_TYPE *prevState, CUDA_COMPLEX_TYPE *curState/*, char * log,
+		CUDA_COMPLEX_TYPE *prevState,
+		CUDA_COMPLEX_TYPE *curState/*, char * log,
 		 uint logMaxSize*/) :
 		tStep(timeStep), tHalfStep(0.5 * timeStep), tSixthStep(timeStep / 6.0), nTimeSteps(
 				nTimeSteps), basisSize(basisSize),
@@ -56,7 +49,9 @@ CUDA_COMPLEX_TYPE * a1CSR3Values, int * a1CSR3Columns, int * a1CSR3RowIndex,
 						a2CSR3Values), a2CSR3Columns(a2CSR3Columns), a2CSR3RowIndex(
 						a2CSR3RowIndex), a3CSR3RowsNum(a3CSR3RowsNum), a3CSR3Values(
 						a3CSR3Values), a3CSR3Columns(a3CSR3Columns), a3CSR3RowIndex(
-						a3CSR3RowIndex), svNormThresholdPtr(svNormThresholdPtr), sharedFloatPtr(
+						a3CSR3RowIndex),
+						//shared
+						svNormThresholdPtr(svNormThresholdPtr), sharedFloatPtr(
 						sharedFloatPtr), sharedPointerPtr(sharedPointerPtr), k1(
 						k1), k2(k2), k3(k3), k4(k4), prevState(prevState), curState(
 						curState), log(log)/*, logMaxSize(logMaxSize), logSize(0)*/{
@@ -114,6 +109,7 @@ __device__ void Solver::solve() {
 #endif
 
 		__syncthreads();
+
 		if (*svNormThresholdPtr > *sharedFloatPtr) {
 #ifdef DEBUG_JUMPS
 			consoleStream << "Jump" << endl;
@@ -304,6 +300,8 @@ __device__ inline void Solver::parallelMakeJump() {
 		}
 	}
 
+	__syncthreads();
+
 	parallelCopy((*sharedPointerPtr), curState);
 	parallelNormalizeVector(curState);
 
@@ -412,6 +410,7 @@ __device__ inline void Solver::multiplyRow(uint rowsize,
 __device__ inline FLOAT_TYPE Solver::calcNormSquare(
 		const CUDA_COMPLEX_TYPE * const v) {
 	FLOAT_TYPE temp = 0.0;
+#pragma unroll
 	for (int i = 0; i < basisSize; ++i) {
 		//vary bad
 		temp += v[i].x * v[i].x + v[i].y * v[i].y;
@@ -496,19 +495,13 @@ CUDA_COMPLEX_TYPE *stateVector) {
 		*sharedFloatPtr = rsqrt(calcNormSquare(stateVector));
 	}
 
+	__syncthreads();
+
 	parallelCalcAlphaVector(*sharedFloatPtr, stateVector, stateVector);
 }
 
 #ifdef TEST_MODE
-__device__ const FLOAT_TYPE _randomNumbers[7]= {
-	0.99, // a jump
-	0.5,// the second cavity wins
-	0.98,// a jump
-	0.1,// the first cavity wins
-	0.99,// a jump
-	0.9,// the third cavity wins
-	0.0// next threshold (impossible to reach)
-};
+__device__ FLOAT_TYPE _randomNumbers[100] = { 0.0 };	// no jumps
 
 __device__ uint _randomNumberCounter = 0;
 #endif

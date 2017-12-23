@@ -49,7 +49,7 @@ inline void print(std::ostream &os, const char * title,
  *   { ... },
  * }"
  */
-inline void print(std::ostream &os, const char * title, const CUDA_COMPLEX_TYPE ** const array,
+inline void print(std::ostream &os, const char * title, const CUDA_COMPLEX_TYPE * const * const array,
 		const int width, const int height) {
 	os << title << ":" << std::endl << "{" << std::endl;
 	for (int i = 0; i < height; ++i) {

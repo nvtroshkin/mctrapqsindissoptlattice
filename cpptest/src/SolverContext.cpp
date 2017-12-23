@@ -69,7 +69,6 @@ SolverContext::SolverContext(uint maxSolvers, FLOAT_TYPE timeStep,
 	sharedPointerDevPtrs = new std::vector<CUDA_COMPLEX_TYPE **>();
 	sharedPointerDevPtrs->reserve(maxSolvers);
 
-
 	k1DevPtrs = new std::vector<CUDA_COMPLEX_TYPE *>();
 	k1DevPtrs->reserve(maxSolvers);
 
@@ -82,13 +81,11 @@ SolverContext::SolverContext(uint maxSolvers, FLOAT_TYPE timeStep,
 	k4DevPtrs = new std::vector<CUDA_COMPLEX_TYPE *>();
 	k4DevPtrs->reserve(maxSolvers);
 
-
 	prevStateDevPtrs = new std::vector<CUDA_COMPLEX_TYPE *>();
 	prevStateDevPtrs->reserve(maxSolvers);
 
 	curStateDevPtrs = new std::vector<CUDA_COMPLEX_TYPE *>();
 	curStateDevPtrs->reserve(maxSolvers);
-
 
 	solverPtrs = new std::vector<Solver *>();
 	solverPtrs->reserve(maxSolvers);
@@ -98,6 +95,20 @@ SolverContext::SolverContext(uint maxSolvers, FLOAT_TYPE timeStep,
 }
 
 SolverContext::~SolverContext() {
+	cudaFree(lDevPtr);
+
+	cudaFree(a1CSR3ValuesDevPtr);
+	cudaFree(a1CSR3ColumnsDevPtr);
+	cudaFree(a1CSR3RowIndexDevPtr);
+
+	cudaFree(a2CSR3ValuesDevPtr);
+	cudaFree(a2CSR3ColumnsDevPtr);
+	cudaFree(a2CSR3RowIndexDevPtr);
+
+	cudaFree(a3CSR3ValuesDevPtr);
+	cudaFree(a3CSR3ColumnsDevPtr);
+	cudaFree(a3CSR3RowIndexDevPtr);
+
 	freePtrs(solverPtrs);
 	delete solverPtrs;
 

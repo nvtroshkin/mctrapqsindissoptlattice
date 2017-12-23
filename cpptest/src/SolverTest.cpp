@@ -5,6 +5,8 @@
  *      Author: fakesci
  */
 
+#include <string>
+
 #include "definitions.h"
 #include "Model.h"
 #include "Solver.h"
@@ -27,8 +29,29 @@ template<typename T> void _printDevArray(SolverContext &solverContext,
 	print(std::cout, title, hostArray, size);
 }
 
-TEST (Solver, parallelNormalize) {
-	std::ostringstream output;
+void _checkState(const std::string &caseId, uint basisSize,
+		const CUDA_COMPLEX_TYPE * const resultState,
+		const CUDA_COMPLEX_TYPE * const expectedState, uint rightDigits) {
+	//check the matrix
+	for (int i = 0; i < basisSize; ++i) {
+		ASSERT_THAT(resultState[i],
+				EqArrayComplexElementAt(expectedState, i, rightDigits))<< caseId << std::endl;
+	}
+}
+
+static const uint N_THREADS_ARRAY_SIZE = 3;
+
+uint * _createNThreadsArray(uint basisSize) {
+	uint * array = new uint[N_THREADS_ARRAY_SIZE];
+
+	array[0] = basisSize / 2;
+	array[1] = basisSize;
+	array[2] = 2 * basisSize;
+
+	return array;
+}
+
+TEST (Solver, parallelNormalizeVector) {
 
 	const int basisSize = 64;
 
@@ -55,10 +78,6 @@ TEST (Solver, parallelNormalize) {
 	Solver * solverDevPtr = solverContext.createSolverDev(vector);
 	CUDA_COMPLEX_TYPE * vectorDevPtr = solverContext.transferState2Device(
 			vector);
-
-	testSolverParallelNormalize(solverDevPtr, vectorDevPtr);
-
-	solverContext.transferState2Host(vectorDevPtr, vector);
 
 	CUDA_COMPLEX_TYPE expectedResultState[] = { { 0.002364389962054795,
 			0.1513209575715069 }, { 0.00472877992410959, 0.1489565676094521 }, {
@@ -114,14 +133,16 @@ TEST (Solver, parallelNormalize) {
 					0.00472877992410959 }, { 0.1513209575715069,
 					0.002364389962054795 } };
 
-	std::cout << output.str();
+	uint * nThreadsArray = _createNThreadsArray(basisSize);
 
-	//check the matrix
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(vector[i],
-				EqArrayComplexElementAt(expectedResultState, i, RIGHT_DIGITS));
+	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
+		testSolverParallelNormalize(solverDevPtr, nThreadsArray[i], vectorDevPtr);
+		solverContext.transferState2Host(vectorDevPtr, vector);
+		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
+				vector, expectedResultState, RIGHT_DIGITS);
 	}
 
+	delete[] nThreadsArray;
 	checkCudaErrors(cudaFree(vectorDevPtr));
 }
 
@@ -197,19 +218,6 @@ TEST (Solver, parallelMultMatrixVector) {
 					0.00472877992410959 }, { 0.1513209575715069,
 					0.002364389962054795 } };
 
-	Solver * solverDevPtr = solverContext.createSolverDev(vector);
-	CUDA_COMPLEX_TYPE * vectorDevPtr = solverContext.transferState2Device(
-			vector);
-
-	CUDA_COMPLEX_TYPE resultState[basisSize];
-	CUDA_COMPLEX_TYPE * resultStateDevPtr = solverContext.transferState2Device(
-			resultState);
-
-	testSolverParallelMultMatrixVector(solverDevPtr, solverContext.getDevPtrL(),
-			basisSize, basisSize, vectorDevPtr, resultStateDevPtr);
-
-	solverContext.transferState2Host(resultStateDevPtr, resultState);
-
 	CUDA_COMPLEX_TYPE expectedResultState[] = { { 32.91230827180275,
 			-40.85665854430685 }, { 1400.475462324296, -1427.334932293239 }, {
 			1398.931988557067, -1426.305949781753 }, { 762.4003805325232,
@@ -255,12 +263,26 @@ TEST (Solver, parallelMultMatrixVector) {
 			2194.078224308064, -3736.417084355647 }, { 1557.546616283521,
 			-3191.434655661865 } };
 
-	//check the matrix
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(resultState[i],
-				EqArrayComplexElementAt(expectedResultState, i, RIGHT_DIGITS));
+	Solver * solverDevPtr = solverContext.createSolverDev(vector);
+	CUDA_COMPLEX_TYPE * vectorDevPtr = solverContext.transferState2Device(
+			vector);
+
+	CUDA_COMPLEX_TYPE resultState[basisSize];
+	CUDA_COMPLEX_TYPE * resultStateDevPtr = solverContext.transferState2Device(
+			resultState);
+
+	uint * nThreadsArray = _createNThreadsArray(basisSize);
+
+	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
+		testSolverParallelMultMatrixVector(solverDevPtr, nThreadsArray[i],
+				solverContext.getDevPtrL(), basisSize, basisSize, vectorDevPtr,
+				resultStateDevPtr);
+		solverContext.transferState2Host(resultStateDevPtr, resultState);
+		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
+				resultState, expectedResultState, RIGHT_DIGITS);
 	}
 
+	delete[] nThreadsArray;
 	checkCudaErrors(cudaFree(vectorDevPtr));
 	checkCudaErrors(cudaFree(resultStateDevPtr));
 }
@@ -336,40 +358,6 @@ TEST (Solver, parallelMultCSR3MatrixVector) {
 					0.00472877992410959 }, { 0.1513209575715069,
 					0.002364389962054795 } };
 
-	Solver * solverDevPtr = solverContext.createSolverDev(vector);
-	CUDA_COMPLEX_TYPE * vectorDevPtr = solverContext.transferState2Device(
-			vector);
-
-	CUDA_COMPLEX_TYPE resultState[basisSize];
-	CUDA_COMPLEX_TYPE * resultStateDevPtr = solverContext.transferState2Device(
-			resultState);
-
-	//--------------------------check A1--------------------------------------------------
-
-	testSolverParallelMultCSR3MatrixVector(solverDevPtr,
-			solverContext.getA1CSR3RowsNum(),
-			solverContext.getA1CSR3ValuesDevPtr(),
-			solverContext.getA1CSR3ColumnsDevPtr(),
-			solverContext.getA1CSR3RowIndexDevPtr(), vectorDevPtr,
-			resultStateDevPtr);
-
-	solverContext.transferState2Host(resultStateDevPtr, resultState);
-
-//	std::cout << "Values number: "
-//			<< model.getA1InCSR3()->rowIndex[solverContext.getA1CSR3RowsNum()]
-//			<< std::endl;
-//	_printDevArray(solverContext, "Matrix values",
-//			(CUDA_COMPLEX_TYPE *)solverContext.getA1CSR3ValuesDevPtr(),
-//			model.getA1InCSR3()->rowIndex[solverContext.getA1CSR3RowsNum()]);
-//	_printDevArray(solverContext, "Matrix rows",
-//			(int *)solverContext.getA1CSR3RowIndexDevPtr(),
-//			solverContext.getA1CSR3RowsNum() + 1);
-//	_printDevArray(solverContext, "Matrix columns",
-//			(int *)solverContext.getA1CSR3ColumnsDevPtr(),
-//			model.getA1InCSR3()->rowIndex[solverContext.getA1CSR3RowsNum()]);
-//	_printDevArray(solverContext, "Result on device", resultStateDevPtr,
-//			basisSize);
-
 	CUDA_COMPLEX_TYPE expectedResultState1[] = { { 1.532124695411507,
 			0.92684086512548 }, { 1.532124695411507, 0.92684086512548 }, {
 			1.532124695411507, 0.92684086512548 }, { 1.532124695411507,
@@ -399,23 +387,6 @@ TEST (Solver, parallelMultCSR3MatrixVector) {
 			{ 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. },
 			{ 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. },
 			{ 0., 0. } };
-
-//check the matrix
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(resultState[i],
-				EqArrayComplexElementAt(expectedResultState1, i, RIGHT_DIGITS));
-	}
-
-	//--------------------------check A2--------------------------------------------------
-
-	testSolverParallelMultCSR3MatrixVector(solverDevPtr,
-			solverContext.getA2CSR3RowsNum(),
-			solverContext.getA2CSR3ValuesDevPtr(),
-			solverContext.getA2CSR3ColumnsDevPtr(),
-			solverContext.getA2CSR3RowIndexDevPtr(), vectorDevPtr,
-			resultStateDevPtr);
-
-	solverContext.transferState2Host(resultStateDevPtr, resultState);
 
 	CUDA_COMPLEX_TYPE expectedResultState2[] = { { 1.305143259054247,
 			1.15382230148274 }, { 1.305143259054247, 1.15382230148274 }, {
@@ -449,23 +420,6 @@ TEST (Solver, parallelMultCSR3MatrixVector) {
 					0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, {
 					0., 0. } };
 
-	//check the matrix
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(resultState[i],
-				EqArrayComplexElementAt(expectedResultState2, i, RIGHT_DIGITS));
-	}
-
-	//--------------------------check A3--------------------------------------------------
-
-	testSolverParallelMultCSR3MatrixVector(solverDevPtr,
-			solverContext.getA3CSR3RowsNum(),
-			solverContext.getA3CSR3ValuesDevPtr(),
-			solverContext.getA3CSR3ColumnsDevPtr(),
-			solverContext.getA3CSR3RowIndexDevPtr(), vectorDevPtr,
-			resultStateDevPtr);
-
-	solverContext.transferState2Host(resultStateDevPtr, resultState);
-
 	CUDA_COMPLEX_TYPE expectedResultState3[] = { { 1.248397899964932,
 			1.210567660572055 }, { 1.286228139357809, 1.172737421179179 }, { 0.,
 			0. }, { 0., 0. }, { 1.248397899964932, 1.210567660572055 }, {
@@ -495,11 +449,65 @@ TEST (Solver, parallelMultCSR3MatrixVector) {
 			1.210567660572055 }, { 1.286228139357809, 1.172737421179179 }, { 0.,
 			0. }, { 0., 0. } };
 
-	//check the matrix
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(resultState[i],
-				EqArrayComplexElementAt(expectedResultState3, i, RIGHT_DIGITS));
+	Solver * solverDevPtr = solverContext.createSolverDev(vector);
+	CUDA_COMPLEX_TYPE * vectorDevPtr = solverContext.transferState2Device(
+			vector);
+
+	CUDA_COMPLEX_TYPE resultState[basisSize];
+	CUDA_COMPLEX_TYPE * resultStateDevPtr = solverContext.transferState2Device(
+			resultState);
+
+	uint * nThreadsArray = _createNThreadsArray(basisSize);
+
+	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
+		testSolverParallelMultCSR3MatrixVector(solverDevPtr, nThreadsArray[i],
+				solverContext.getA1CSR3RowsNum(),
+				solverContext.getA1CSR3ValuesDevPtr(),
+				solverContext.getA1CSR3ColumnsDevPtr(),
+				solverContext.getA1CSR3RowIndexDevPtr(), vectorDevPtr,
+				resultStateDevPtr);
+		solverContext.transferState2Host(resultStateDevPtr, resultState);
+		_checkState("check A1; nThreads = " + std::to_string(nThreadsArray[i]),
+				basisSize, resultState, expectedResultState1, RIGHT_DIGITS);
+
+		testSolverParallelMultCSR3MatrixVector(solverDevPtr, nThreadsArray[i],
+				solverContext.getA2CSR3RowsNum(),
+				solverContext.getA2CSR3ValuesDevPtr(),
+				solverContext.getA2CSR3ColumnsDevPtr(),
+				solverContext.getA2CSR3RowIndexDevPtr(), vectorDevPtr,
+				resultStateDevPtr);
+		solverContext.transferState2Host(resultStateDevPtr, resultState);
+		_checkState("check A2; nThreads = " + std::to_string(nThreadsArray[i]),
+				basisSize, resultState, expectedResultState2, RIGHT_DIGITS);
+
+		testSolverParallelMultCSR3MatrixVector(solverDevPtr, nThreadsArray[i],
+				solverContext.getA3CSR3RowsNum(),
+				solverContext.getA3CSR3ValuesDevPtr(),
+				solverContext.getA3CSR3ColumnsDevPtr(),
+				solverContext.getA3CSR3RowIndexDevPtr(), vectorDevPtr,
+				resultStateDevPtr);
+		solverContext.transferState2Host(resultStateDevPtr, resultState);
+		_checkState("check A3; nThreads = " + std::to_string(nThreadsArray[i]),
+				basisSize, resultState, expectedResultState3, RIGHT_DIGITS);
+
 	}
+
+	delete[] nThreadsArray;
+
+//	std::cout << "Values number: "
+//			<< model.getA1InCSR3()->rowIndex[solverContext.getA1CSR3RowsNum()]
+//			<< std::endl;
+//	_printDevArray(solverContext, "Matrix values",
+//			(CUDA_COMPLEX_TYPE *)solverContext.getA1CSR3ValuesDevPtr(),
+//			model.getA1InCSR3()->rowIndex[solverContext.getA1CSR3RowsNum()]);
+//	_printDevArray(solverContext, "Matrix rows",
+//			(int *)solverContext.getA1CSR3RowIndexDevPtr(),
+//			solverContext.getA1CSR3RowsNum() + 1);
+//	_printDevArray(solverContext, "Matrix columns",
+//			(int *)solverContext.getA1CSR3ColumnsDevPtr(),
+//			model.getA1InCSR3()->rowIndex[solverContext.getA1CSR3RowsNum()]);
+//	_printDevArray(solverContext, "Result on device", resultStateDevPtr,
+//			basisSize);
 
 	checkCudaErrors(cudaFree(vectorDevPtr));
 	checkCudaErrors(cudaFree(resultStateDevPtr));
@@ -585,15 +593,17 @@ TEST (Solver, parallelCopy) {
 	CUDA_COMPLEX_TYPE * resultStateDevPtr = solverContext.transferState2Device(
 			resultState);
 
-	testSolverParallelCopy(solverDevPtr, vectorDevPtr, resultStateDevPtr);
+	uint * nThreadsArray = _createNThreadsArray(basisSize);
 
-	solverContext.transferState2Host(resultStateDevPtr, resultState);
-
-	//check the matrix
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(resultState[i],
-				EqArrayComplexElementAt(vector, i, RIGHT_DIGITS));
+	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
+		testSolverParallelCopy(solverDevPtr, nThreadsArray[i], vectorDevPtr,
+				resultStateDevPtr);
+		solverContext.transferState2Host(resultStateDevPtr, resultState);
+		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
+				resultState, vector, RIGHT_DIGITS);
 	}
+
+	delete[] nThreadsArray;
 
 	checkCudaErrors(cudaFree(vectorDevPtr));
 	checkCudaErrors(cudaFree(resultStateDevPtr));
@@ -671,21 +681,6 @@ TEST (Solver, parallelCalcAlphaVector) {
 					0.00472877992410959 }, { 0.1513209575715069,
 					0.002364389962054795 } };
 
-	Solver * solverDevPtr = solverContext.createSolverDev(vector);
-	CUDA_COMPLEX_TYPE * vectorDevPtr = solverContext.transferState2Device(
-			vector);
-
-	CUDA_COMPLEX_TYPE resultState[basisSize];
-	CUDA_COMPLEX_TYPE * resultStateDevPtr = solverContext.transferState2Device(
-			resultState);
-
-	FLOAT_TYPE alpha = 0.8;
-
-	testSolverParallelCalcAlphaVector(solverDevPtr, alpha, vectorDevPtr,
-			resultStateDevPtr);
-
-	solverContext.transferState2Host(resultStateDevPtr, resultState);
-
 	CUDA_COMPLEX_TYPE expectedResultState[] = { { 0.001891511969643836,
 			0.1210567660572055 }, { 0.003783023939287672, 0.1191652540875617 },
 			{ 0.005674535908931508, 0.1172737421179178 }, {
@@ -751,11 +746,28 @@ TEST (Solver, parallelCalcAlphaVector) {
 					0.1191652540875617, 0.003783023939287672 }, {
 					0.1210567660572055, 0.001891511969643836 } };
 
-	//check the matrix
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(resultState[i],
-				EqArrayComplexElementAt(expectedResultState, i, RIGHT_DIGITS));
+	Solver * solverDevPtr = solverContext.createSolverDev(vector);
+	CUDA_COMPLEX_TYPE * vectorDevPtr = solverContext.transferState2Device(
+			vector);
+
+	CUDA_COMPLEX_TYPE resultState[basisSize];
+	CUDA_COMPLEX_TYPE * resultStateDevPtr = solverContext.transferState2Device(
+			resultState);
+
+	FLOAT_TYPE alpha = 0.8;
+
+	uint * nThreadsArray = _createNThreadsArray(basisSize);
+
+	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
+		testSolverParallelCalcAlphaVector(solverDevPtr, nThreadsArray[i], alpha,
+				vectorDevPtr, resultStateDevPtr);
+		solverContext.transferState2Host(resultStateDevPtr, resultState);
+		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
+				resultState, expectedResultState, RIGHT_DIGITS);
+
 	}
+
+	delete[] nThreadsArray;
 
 	checkCudaErrors(cudaFree(vectorDevPtr));
 	checkCudaErrors(cudaFree(resultStateDevPtr));
@@ -833,30 +845,6 @@ TEST (Solver, parallelCalcV1PlusAlphaV2) {
 					0.00472877992410959 }, { 0.1513209575715069,
 					0.002364389962054795 } };
 
-	Solver * solverDevPtr = solverContext.createSolverDev(vector);
-	CUDA_COMPLEX_TYPE * vectorDevPtr1 = solverContext.transferState2Device(
-			vector);
-
-	CUDA_COMPLEX_TYPE resultState[basisSize];
-	CUDA_COMPLEX_TYPE * resultStateDevPtr = solverContext.transferState2Device(
-			resultState);
-
-	//v2 = 10 v1
-	for (int i = 0; i < basisSize; ++i) {
-		vector[i].x *= 10;
-		vector[i].y *= 10;
-	}
-
-	CUDA_COMPLEX_TYPE * vectorDevPtr2 = solverContext.transferState2Device(
-			vector);
-
-	FLOAT_TYPE alpha = 0.8;
-
-	testSolverParallelCalcV1PlusAlphaV2(solverDevPtr, vectorDevPtr1, alpha,
-			vectorDevPtr2, resultStateDevPtr);
-
-	solverContext.transferState2Host(resultStateDevPtr, resultState);
-
 	CUDA_COMPLEX_TYPE expectedResultState[] = { { 0.02127950965849315,
 			1.361888618143562 }, { 0.04255901931698631, 1.340609108485069 }, {
 			0.06383852897547947, 1.319329598826576 }, { 0.0851180386339726,
@@ -902,11 +890,36 @@ TEST (Solver, parallelCalcV1PlusAlphaV2) {
 			1.340609108485069, 0.04255901931698631 }, { 1.361888618143562,
 			0.02127950965849315 } };
 
-	//check the matrix
+	Solver * solverDevPtr = solverContext.createSolverDev(vector);
+	CUDA_COMPLEX_TYPE * vectorDevPtr1 = solverContext.transferState2Device(
+			vector);
+
+	CUDA_COMPLEX_TYPE resultState[basisSize];
+	CUDA_COMPLEX_TYPE * resultStateDevPtr = solverContext.transferState2Device(
+			resultState);
+
+	//v2 = 10 v1
 	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(resultState[i],
-				EqArrayComplexElementAt(expectedResultState, i, RIGHT_DIGITS));
+		vector[i].x *= 10;
+		vector[i].y *= 10;
 	}
+
+	CUDA_COMPLEX_TYPE * vectorDevPtr2 = solverContext.transferState2Device(
+			vector);
+
+	FLOAT_TYPE alpha = 0.8;
+
+	uint * nThreadsArray = _createNThreadsArray(basisSize);
+
+	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
+		testSolverParallelCalcV1PlusAlphaV2(solverDevPtr, nThreadsArray[i],
+				vectorDevPtr1, alpha, vectorDevPtr2, resultStateDevPtr);
+		solverContext.transferState2Host(resultStateDevPtr, resultState);
+		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
+				resultState, expectedResultState, RIGHT_DIGITS);
+	}
+
+	delete[] nThreadsArray;
 
 	checkCudaErrors(cudaFree(vectorDevPtr1));
 	checkCudaErrors(cudaFree(vectorDevPtr2));
@@ -938,12 +951,6 @@ TEST (Solver, oneLargeStep) {
 
 	//the ground state
 	CUDA_COMPLEX_TYPE initialState[basisSize] = { { 1.0, 0.0 } };
-
-	Solver * solverDevPtr = solverContext.createSolverDev(initialState);
-
-	testSolverSolve(solverDevPtr);
-
-	CUDA_COMPLEX_TYPE ** results = solverContext.getAllResults();
 
 	CUDA_COMPLEX_TYPE expectedResultState[] = { { 0.0003493690430408358,
 			-7.202438253715121e-06 }, { 0.06482572244162993,
@@ -1011,13 +1018,25 @@ TEST (Solver, oneLargeStep) {
 					0.1160236660191726, -0.004718431852616868 }, {
 					0.07887681725966036, -0.003944868998060652 } };
 
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(results[0][i],
-				EqArrayComplexElementAt(expectedResultState, i, RIGHT_DIGITS));
+//	print(std::cout, "result", results[0], basisSize);
+
+	Solver * solverDevPtr = solverContext.createSolverDev(initialState);
+
+	CUDA_COMPLEX_TYPE ** results;
+
+	uint * nThreadsArray = _createNThreadsArray(basisSize);
+
+	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
+		testSolverSolve(solverDevPtr, nThreadsArray[i], true);
+		results = solverContext.getAllResults();
+		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
+				results[0], expectedResultState, RIGHT_DIGITS);
+		delete[] results[0];
+		delete[] results;
+
 	}
 
-	delete[] results[0];
-	delete[] results;
+	delete[] nThreadsArray;
 }
 
 /**
@@ -1031,7 +1050,7 @@ TEST (Solver, oneLargeStep) {
  *	field1SSize = field2SSize = field3SSize = 2
  *
  *	timeStep = 0.00001
- *	timeStepsNumber = 1000
+ *	timeStepsNumber = 5000
  *
  *	No jumps
  *
@@ -1045,12 +1064,6 @@ TEST (Solver, manyStepsNoJump) {
 
 	//the ground state
 	CUDA_COMPLEX_TYPE initialState[basisSize] = { { 1.0, 0.0 } };
-
-	Solver * solverDevPtr = solverContext.createSolverDev(initialState);
-
-	testSolverSolve(solverDevPtr);
-
-	CUDA_COMPLEX_TYPE ** results = solverContext.getAllResults();
 
 	CUDA_COMPLEX_TYPE expectedResultState[] = { { 0.999998691616525,
 			-0.00035668242740145 }, { -0.000166950067722578,
@@ -1118,13 +1131,23 @@ TEST (Solver, manyStepsNoJump) {
 			0.00006952074727542943 }, { 0.00006949371011911287,
 			0.00007056545761028223 } };
 
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(results[0][i],
-				EqArrayComplexElementAt(expectedResultState, i, RIGHT_DIGITS));
+	Solver * solverDevPtr = solverContext.createSolverDev(initialState);
+
+	CUDA_COMPLEX_TYPE ** results;
+
+	uint * nThreadsArray = _createNThreadsArray(basisSize);
+
+	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
+		testSolverSolve(solverDevPtr, nThreadsArray[i], true);
+		results = solverContext.getAllResults();
+		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
+				results[0], expectedResultState, RIGHT_DIGITS);
+		delete[] results[0];
+		delete[] results;
+
 	}
 
-	delete[] results[0];
-	delete[] results;
+	delete[] nThreadsArray;
 }
 
 /**
@@ -1210,70 +1233,6 @@ TEST (Solver, makeJump) {
 							-0.00618878138331 }, { 0.0594702205699,
 							-0.00640909859194 } };
 
-	Solver * solverDevPtr = solverContext.createSolverDev(stateBeforeJump);
-
-	//skip one random number
-	testSolverParallelMakeJump(solverDevPtr);
-	//test jump
-	testSolverParallelMakeJump(solverDevPtr);
-
-	//jumps in the second cavity
-	CUDA_COMPLEX_TYPE stateAfterJumpInSecond[] = { { -0.241760844311824,
-			0.05735294217263367 }, { -0.241760844311824, 0.05735294217263367 },
-			{ -0.241760844311824, 0.05735294217263367 }, { -0.241760844311824,
-					0.05735294217263367 }, { -0.02701632146462167,
-					0.005696714517755487 }, { -0.02701632146462167,
-					0.005696714517755487 }, { -0.02701632146462167,
-					0.005696714517755487 }, { -0.02701632146462167,
-					0.005696714517755487 }, { 0., 0. }, { 0., 0. }, { 0., 0. },
-			{ 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, {
-					-0.241760844311824, 0.05735294217263367 }, {
-					-0.241760844311824, 0.05735294217263367 }, {
-					-0.241760844311824, 0.05735294217263367 }, {
-					-0.241760844311824, 0.05735294217263367 }, {
-					-0.02701632146462167, 0.005696714517755487 }, {
-					-0.02701632146462167, 0.005696714517755487 }, {
-					-0.02701632146462167, 0.005696714517755487 }, {
-					-0.02701632146462167, 0.005696714517755487 }, { 0., 0. }, {
-					0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, {
-					0., 0. }, { 0., 0. }, { -0.241760844311824,
-					0.05735294217263367 }, { -0.241760844311824,
-					0.05735294217263367 }, { -0.241760844311824,
-					0.05735294217263367 }, { -0.241760844311824,
-					0.05735294217263367 }, { -0.02701632146462167,
-					0.005696714517755487 }, { -0.02701632146462167,
-					0.005696714517755487 }, { -0.02701632146462167,
-					0.005696714517755487 }, { -0.02701632146462167,
-					0.005696714517755487 }, { 0., 0. }, { 0., 0. }, { 0., 0. },
-			{ 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, {
-					-0.241760844311824, 0.05735294217263367 }, {
-					-0.241760844311824, 0.05735294217263367 }, {
-					-0.241760844311824, 0.05735294217263367 }, {
-					-0.241760844311824, 0.05735294217263367 }, {
-					-0.02701632146462167, 0.005696714517755487 }, {
-					-0.02701632146462167, 0.005696714517755487 }, {
-					-0.02701632146462167, 0.005696714517755487 }, {
-					-0.02701632146462167, 0.005696714517755487 }, { 0., 0. }, {
-					0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, {
-					0., 0. }, { 0., 0. } };
-
-	CUDA_COMPLEX_TYPE ** results1 = solverContext.getAllResults();
-	print(std::cout, "After the first jump", results1[0], basisSize);
-
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(results1[0][i],
-				EqArrayComplexElementAt(stateAfterJumpInSecond, i,
-						RIGHT_DIGITS - 2));
-	}
-
-	delete[] results1[0];
-	delete[] results1;
-
-	//skip one random number
-	testSolverParallelMakeJump(solverDevPtr);
-	//test jump
-	testSolverParallelMakeJump(solverDevPtr);
-
 	CUDA_COMPLEX_TYPE stateAfterJumpInFirst[] = { { -0.241778824627901,
 			0.05735754856472159 }, { -0.241778824627901, 0.05735754856472159 },
 			{ -0.241778824627901, 0.05735754856472159 }, { -0.241778824627901,
@@ -1313,22 +1272,44 @@ TEST (Solver, makeJump) {
 			{ 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. },
 			{ 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. } };
 
-	CUDA_COMPLEX_TYPE ** results2 = solverContext.getAllResults();
-	print(std::cout, "After the second jump", results2[0], basisSize);
-
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(results2[0][i],
-				EqArrayComplexElementAt(stateAfterJumpInFirst, i,
-						RIGHT_DIGITS - 2));
-	}
-
-	delete[] results2[0];
-	delete[] results2;
-
-	//skip one random number
-	testSolverParallelMakeJump(solverDevPtr);
-	//test jump
-	testSolverParallelMakeJump(solverDevPtr);
+	CUDA_COMPLEX_TYPE stateAfterJumpInSecond[] = { { -0.241760844311824,
+			0.05735294217263367 }, { -0.241760844311824, 0.05735294217263367 },
+			{ -0.241760844311824, 0.05735294217263367 }, { -0.241760844311824,
+					0.05735294217263367 }, { -0.02701632146462167,
+					0.005696714517755487 }, { -0.02701632146462167,
+					0.005696714517755487 }, { -0.02701632146462167,
+					0.005696714517755487 }, { -0.02701632146462167,
+					0.005696714517755487 }, { 0., 0. }, { 0., 0. }, { 0., 0. },
+			{ 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, {
+					-0.241760844311824, 0.05735294217263367 }, {
+					-0.241760844311824, 0.05735294217263367 }, {
+					-0.241760844311824, 0.05735294217263367 }, {
+					-0.241760844311824, 0.05735294217263367 }, {
+					-0.02701632146462167, 0.005696714517755487 }, {
+					-0.02701632146462167, 0.005696714517755487 }, {
+					-0.02701632146462167, 0.005696714517755487 }, {
+					-0.02701632146462167, 0.005696714517755487 }, { 0., 0. }, {
+					0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, {
+					0., 0. }, { 0., 0. }, { -0.241760844311824,
+					0.05735294217263367 }, { -0.241760844311824,
+					0.05735294217263367 }, { -0.241760844311824,
+					0.05735294217263367 }, { -0.241760844311824,
+					0.05735294217263367 }, { -0.02701632146462167,
+					0.005696714517755487 }, { -0.02701632146462167,
+					0.005696714517755487 }, { -0.02701632146462167,
+					0.005696714517755487 }, { -0.02701632146462167,
+					0.005696714517755487 }, { 0., 0. }, { 0., 0. }, { 0., 0. },
+			{ 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, {
+					-0.241760844311824, 0.05735294217263367 }, {
+					-0.241760844311824, 0.05735294217263367 }, {
+					-0.241760844311824, 0.05735294217263367 }, {
+					-0.241760844311824, 0.05735294217263367 }, {
+					-0.02701632146462167, 0.005696714517755487 }, {
+					-0.02701632146462167, 0.005696714517755487 }, {
+					-0.02701632146462167, 0.005696714517755487 }, {
+					-0.02701632146462167, 0.005696714517755487 }, { 0., 0. }, {
+					0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, { 0., 0. }, {
+					0., 0. }, { 0., 0. } };
 
 	CUDA_COMPLEX_TYPE stateAfterJumpInThird[] = { { -0.2417788246279629,
 			0.05735754856444291 },
@@ -1365,19 +1346,38 @@ TEST (Solver, makeJump) {
 					-0.02685230433498556, 0.005662626254631792 }, { 0., 0. }, {
 					0., 0. } };
 
-	//checks
+	Solver * solverDevPtr = solverContext.createSolverDev(stateBeforeJump);
 
-	CUDA_COMPLEX_TYPE ** results3 = solverContext.getAllResults();
-	print(std::cout, "After the third jump", results3[0], basisSize);
+	uint * nThreadsArray = _createNThreadsArray(basisSize);
 
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(results3[0][i],
-				EqArrayComplexElementAt(stateAfterJumpInThird, i,
-						RIGHT_DIGITS - 2));
+	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
+		testSolverParallelMakeJump(solverDevPtr, nThreadsArray[i], 0.5);
+		CUDA_COMPLEX_TYPE ** results1 = solverContext.getAllResults();
+		_checkState("1st jump, nThreads = " + std::to_string(nThreadsArray[i]),
+				basisSize, results1[0], stateAfterJumpInSecond,
+				RIGHT_DIGITS - 2);
+		delete[] results1[0];
+		delete[] results1;
+
+		testSolverParallelMakeJump(solverDevPtr, nThreadsArray[i], 0.1);
+		CUDA_COMPLEX_TYPE ** results2 = solverContext.getAllResults();
+		_checkState("2nd jump, nThreads = " + std::to_string(nThreadsArray[i]),
+				basisSize, results2[0], stateAfterJumpInFirst,
+				RIGHT_DIGITS - 2);
+		delete[] results2[0];
+		delete[] results2;
+
+		testSolverParallelMakeJump(solverDevPtr, nThreadsArray[i], 0.9);
+		CUDA_COMPLEX_TYPE ** results3 = solverContext.getAllResults();
+		_checkState("3rd jump, nThreads = " + std::to_string(nThreadsArray[i]),
+				basisSize, results3[0], stateAfterJumpInThird,
+				RIGHT_DIGITS - 2);
+		delete[] results3[0];
+		delete[] results3;
+
 	}
 
-	delete[] results3[0];
-	delete[] results3;
+	delete[] nThreadsArray;
 }
 
 /**
@@ -1401,20 +1401,21 @@ TEST (Solver, makeJump) {
  */
 TEST (Solver, severalJumps) {
 
-	Model model(2, 2, 2, 2, 2, 2, 1.0, 20.0, 50.0, 30.0, 0.1);
+	//	_randomNumbers[0] = 0.99; // a jump
+	//		_randomNumbers[1] = 0.5; // the second cavity wins
+	//		_randomNumbers[2] = 0.98; // a jump
+	//		_randomNumbers[3] = 0.1; // the first cavity wins
+	//		_randomNumbers[4] = 0.99; // a jump
+	//		_randomNumbers[5] = 0.9; // the third cavity wins
+	//		_randomNumbers[6] = 0.0; // next threshold (impossible to reach)
 
 	const int basisSize = 64;
 
-	SolverContext solverContext(1, 0.0001, 5000, model);
+	Model model(2, 2, 2, 2, 2, 2, 1.0, 20.0, 50.0, 30.0, 0.1);
+	SolverContext solverContext(1, 0.00001, 1000, model);
 
 	//the ground state
 	CUDA_COMPLEX_TYPE initialState[basisSize] = { { 1.0, 0.0 } };
-
-	Solver * solverDevPtr = solverContext.createSolverDev(initialState);
-
-	testSolverSolve(solverDevPtr);
-
-	CUDA_COMPLEX_TYPE ** results = solverContext.getAllResults();
 
 	CUDA_COMPLEX_TYPE expectedResultState[] = { { -0.203470718, 0.3382981526 },
 			{ -0.1189207813, 0.197612049 }, { -0.1238852873, 0.2060443142 }, {
@@ -1460,12 +1461,23 @@ TEST (Solver, severalJumps) {
 					-0.0711453855 }, { 0.03776935682, -0.06271312028 }, {
 					0.03901247068, -0.06483998645 } };
 
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(results[0][i],
-				EqArrayComplexElementAt(expectedResultState, i, RIGHT_DIGITS));
+	Solver * solverDevPtr = solverContext.createSolverDev(initialState);
+
+	CUDA_COMPLEX_TYPE ** results;
+
+	uint * nThreadsArray = _createNThreadsArray(basisSize);
+
+	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
+		testSolverSolve(solverDevPtr, nThreadsArray[i], false);
+		results = solverContext.getAllResults();
+		print(std::cout, "result", results[0], basisSize);
+		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
+				results[0], expectedResultState, RIGHT_DIGITS);
+		delete[] results[0];
+		delete[] results;
+
 	}
 
-	delete[] results[0];
-	delete[] results;
+	delete[] nThreadsArray;
 }
 

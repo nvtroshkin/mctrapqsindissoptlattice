@@ -5,6 +5,7 @@
  *      Author: fakesci
  */
 
+#include <string>
 #include "definitions.h"
 
 #include "Model.h"
@@ -30,61 +31,71 @@
  */
 TEST (MonteCarloSimulator, test) {
 	Model model(2, 2, 2, 2, 2, 2, 1.0, 20.0, 50.0, 30.0, 0.1);
-	MonteCarloSimulator monteCarloSimulator(64, model);
+	MonteCarloSimulator monteCarloSimulator(32, model);
 
-	SimulationResult *result = monteCarloSimulator.simulate(0.00001, 1000,
-			THREADS_PER_BLOCK, 64);
+	uint nBlocks[3] = { 16, 32, 64 };
 
-	const ImpreciseValue *firstCavityPhotons = result->getFirstCavityPhotons();
-	const ImpreciseValue *secondCavityPhotons =
-			result->getSecondCavityPhotons();
-	const ImpreciseValue *thirdCavityPhotons = result->getThirdCavityPhotons();
+	for (int i = 0; i < 3; ++i) {
+		std::string caseId = "nBlocks = " + std::to_string(nBlocks[i]);
 
-	std::cout << "Avg photons in the FIRST cavity: " << firstCavityPhotons->mean
-			<< "; Standard deviation: " << firstCavityPhotons->standardDeviation
-			<< std::endl;
-	std::cout << "Avg photons in the SECOND cavity: "
-			<< secondCavityPhotons->mean << "; Standard deviation: "
-			<< secondCavityPhotons->standardDeviation << std::endl;
-	std::cout << "Avg photons in the THIRD cavity: " << thirdCavityPhotons->mean
-			<< "; Standard deviation: " << thirdCavityPhotons->standardDeviation
-			<< std::endl;
+		std::cout << caseId << std::endl;
 
-	//in a jump occurs a significant loss of precision, because
-	// 1) the method of detection of the time of a jump is rough (just using a previous step)
-	// 2) after a jump a state vector gets 1/100 of its previous norm with 2 significant digits cut
+		SimulationResult *result = monteCarloSimulator.simulate(0.00001, 1000,
+				64, nBlocks[i]);
 
-	FLOAT_TYPE expectedMeanPhotonsFirst = 0.06314346804;
-	FLOAT_TYPE expectedMeanPhotonsSecond = 0.06319560942;
-	FLOAT_TYPE expectedMeanPhotonsThird = 0.06388715297;
+		const ImpreciseValue *firstCavityPhotons =
+				result->getFirstCavityPhotons();
+		const ImpreciseValue *secondCavityPhotons =
+				result->getSecondCavityPhotons();
+		const ImpreciseValue *thirdCavityPhotons =
+				result->getThirdCavityPhotons();
 
-	//The expected values should lie in the confidence interval
-	ASSERT_TRUE(
-			std::abs(firstCavityPhotons->mean - expectedMeanPhotonsFirst)
-					< firstCavityPhotons->standardDeviation);
-	ASSERT_TRUE(
-			std::abs(secondCavityPhotons->mean - expectedMeanPhotonsSecond)
-					< secondCavityPhotons->standardDeviation);
-	ASSERT_TRUE(
-			std::abs(thirdCavityPhotons->mean - expectedMeanPhotonsThird)
-					< thirdCavityPhotons->standardDeviation);
+		std::cout << "Avg photons in the FIRST cavity: "
+				<< firstCavityPhotons->mean << "; Standard deviation: "
+				<< firstCavityPhotons->standardDeviation << std::endl;
+		std::cout << "Avg photons in the SECOND cavity: "
+				<< secondCavityPhotons->mean << "; Standard deviation: "
+				<< secondCavityPhotons->standardDeviation << std::endl;
+		std::cout << "Avg photons in the THIRD cavity: "
+				<< thirdCavityPhotons->mean << "; Standard deviation: "
+				<< thirdCavityPhotons->standardDeviation << std::endl;
 
-	//tight?
-	ASSERT_THAT(firstCavityPhotons->mean,
-			FloatEq8digits(expectedMeanPhotonsFirst));
-	ASSERT_THAT(firstCavityPhotons->standardDeviation,
-			FloatEq8digits(0.002187166471));
+		//in a jump occurs a significant loss of precision, because
+		// 1) the method of detection of the time of a jump is rough (just using a previous step)
+		// 2) after a jump a state vector gets 1/100 of its previous norm with 2 significant digits cut
 
-	ASSERT_THAT(secondCavityPhotons->mean,
-			FloatEq8digits(expectedMeanPhotonsSecond));
-	ASSERT_THAT(secondCavityPhotons->standardDeviation,
-			FloatEq8digits(0.002238600222));
+		FLOAT_TYPE expectedMeanPhotonsFirst = 0.06314346804;
+		FLOAT_TYPE expectedMeanPhotonsSecond = 0.06319560942;
+		FLOAT_TYPE expectedMeanPhotonsThird = 0.06388715297;
 
-	ASSERT_THAT(thirdCavityPhotons->mean,
-			FloatEq8digits(expectedMeanPhotonsThird));
-	ASSERT_THAT(thirdCavityPhotons->standardDeviation,
-			FloatEq8digits(0.002930851397));
+		//The expected values should lie in the confidence interval
+		ASSERT_TRUE(
+				std::abs(firstCavityPhotons->mean - expectedMeanPhotonsFirst)
+						< firstCavityPhotons->standardDeviation);
+		ASSERT_TRUE(
+				std::abs(secondCavityPhotons->mean - expectedMeanPhotonsSecond)
+						< secondCavityPhotons->standardDeviation);
+		ASSERT_TRUE(
+				std::abs(thirdCavityPhotons->mean - expectedMeanPhotonsThird)
+						< thirdCavityPhotons->standardDeviation);
 
-	delete result;
+		//tight?
+		ASSERT_THAT(firstCavityPhotons->mean,
+				FloatEq8digits(expectedMeanPhotonsFirst));
+		ASSERT_THAT(firstCavityPhotons->standardDeviation,
+				FloatEq8digits(0.002187166471));
+
+		ASSERT_THAT(secondCavityPhotons->mean,
+				FloatEq8digits(expectedMeanPhotonsSecond));
+		ASSERT_THAT(secondCavityPhotons->standardDeviation,
+				FloatEq8digits(0.002238600222));
+
+		ASSERT_THAT(thirdCavityPhotons->mean,
+				FloatEq8digits(expectedMeanPhotonsThird));
+		ASSERT_THAT(thirdCavityPhotons->standardDeviation,
+				FloatEq8digits(0.002930851397));
+
+		delete result;
+	}
 }
 

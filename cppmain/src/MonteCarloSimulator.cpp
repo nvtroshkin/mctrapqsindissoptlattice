@@ -20,10 +20,24 @@
 #include <cuda_runtime.h>
 #include "helper_cuda.h"
 
-//for the syntax checker
-#ifndef __CUDA_ARCH__
-extern const uint3 blockIdx;
-#endif
+extern void simulate(const int nBlocks, const int nThreadsPerBlock,
+		int basisSize,
+		FLOAT_TYPE timeStep, int nTimeSteps, const CUDA_COMPLEX_TYPE * lDevPtr,
+		int a1CSR3RowsNum, const CUDA_COMPLEX_TYPE * a1CSR3ValuesDevPtr,
+		const int * a1CSR3ColumnsDevPtr, const int * a1CSR3RowIndexDevPtr,
+		int a2CSR3RowsNum, const CUDA_COMPLEX_TYPE * a2CSR3ValuesDevPtr,
+		const int * a2CSR3ColumnsDevPtr, const int * a2CSR3RowIndexDevPtr,
+		int a3CSR3RowsNum, const CUDA_COMPLEX_TYPE * a3CSR3ValuesDevPtr,
+		const int * a3CSR3ColumnsDevPtr, const int * a3CSR3RowIndexDevPtr,
+		//block-local
+		FLOAT_TYPE ** svNormThresholdDevPtr,
+		FLOAT_TYPE ** sharedFloatDevPtr,
+		CUDA_COMPLEX_TYPE *** sharedPointerDevPtr,
+		CUDA_COMPLEX_TYPE ** k1DevPtr,
+		CUDA_COMPLEX_TYPE ** k2DevPtr,
+		CUDA_COMPLEX_TYPE ** k3DevPtr, CUDA_COMPLEX_TYPE ** k4DevPtr,
+		CUDA_COMPLEX_TYPE ** prevStateDevPtr,
+		CUDA_COMPLEX_TYPE ** curStateDevPtr);
 
 template<typename T> T** initDev2DArray(T ** &dev2DArray, uint topLevelSize,
 		uint bottomLevelSize) {
@@ -74,46 +88,17 @@ CUDA_COMPLEX_TYPE ** valuesDevPtr, int ** columnsDevPtr,
 					cudaMemcpyHostToDevice));
 }
 
-__global__ void simulate0(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
-CUDA_COMPLEX_TYPE * l, int a1CSR3RowsNum,
-CUDA_COMPLEX_TYPE * a1CSR3Values, int * a1CSR3Columns, int * a1CSR3RowIndex,
-		int a2CSR3RowsNum,
-		CUDA_COMPLEX_TYPE * a2CSR3Values, int * a2CSR3Columns,
-		int * a2CSR3RowIndex, int a3CSR3RowsNum,
-		CUDA_COMPLEX_TYPE * a3CSR3Values, int * a3CSR3Columns,
-		int * a3CSR3RowIndex,
-		//block-local
-		FLOAT_TYPE ** svNormThresholdPtr,
-		FLOAT_TYPE ** sharedFloatPtr, CUDA_COMPLEX_TYPE *** sharedPointerPtr,
-		CUDA_COMPLEX_TYPE ** k1,
-		CUDA_COMPLEX_TYPE ** k2,
-		CUDA_COMPLEX_TYPE ** k3, CUDA_COMPLEX_TYPE ** k4,
-		CUDA_COMPLEX_TYPE ** prevState, CUDA_COMPLEX_TYPE ** curState) {
-
-	Solver solver(basisSize, timeStep, nTimeSteps, l, a1CSR3RowsNum,
-			a1CSR3Values, a1CSR3Columns, a1CSR3RowIndex, a2CSR3RowsNum,
-			a2CSR3Values, a2CSR3Columns, a2CSR3RowIndex, a3CSR3RowsNum,
-			a3CSR3Values, a3CSR3Columns, a3CSR3RowIndex,
-			//block-local
-			svNormThresholdPtr[blockIdx.x], sharedFloatPtr[blockIdx.x],
-			sharedPointerPtr[blockIdx.x], k1[blockIdx.x], k2[blockIdx.x],
-			k3[blockIdx.x], k4[blockIdx.x], prevState[blockIdx.x],
-			curState[blockIdx.x]/*, NULL, 0*/);
-	solver.solve();
-}
-
-__host__ MonteCarloSimulator::MonteCarloSimulator(uint samplesNumber,
-		Model &model) :
+MonteCarloSimulator::MonteCarloSimulator(uint samplesNumber, Model &model) :
 		basisSize(model.getBasisSize()), samplesNumber(samplesNumber), model(
 				model), groundState(new CUDA_COMPLEX_TYPE[basisSize]()) {
 	groundState[0].x = 1.0;
 }
 
-__host__ MonteCarloSimulator::~MonteCarloSimulator() {
+MonteCarloSimulator::~MonteCarloSimulator() {
 	delete[] groundState;
 }
 
-__host__ SimulationResult *MonteCarloSimulator::simulate(FLOAT_TYPE timeStep,
+SimulationResult *MonteCarloSimulator::simulate(FLOAT_TYPE timeStep,
 		uint nTimeSteps, uint threadsPerBlock, uint nBlocks) {
 
 	CUDA_COMPLEX_TYPE *lDevPtr;
@@ -202,19 +187,20 @@ __host__ SimulationResult *MonteCarloSimulator::simulate(FLOAT_TYPE timeStep,
 					cudaMemcpy(prevStateDevPtrsHostArray[i], groundState, basisSize * sizeof(CUDA_COMPLEX_TYPE), cudaMemcpyHostToDevice));
 		}
 
-simulate0<<<actualNBlocks, threadsPerBlock>>>((int) basisSize, timeStep, (int) nTimeSteps, lDevPtr,
-			model.getA1InCSR3()->rowsNumber, a1CSR3ValuesDevPtr,
-			a1CSR3ColumnsDevPtr, a1CSR3RowIndexDevPtr,
-			model.getA2InCSR3()->rowsNumber, a2CSR3ValuesDevPtr,
-			a2CSR3ColumnsDevPtr, a2CSR3RowIndexDevPtr,
-			model.getA3InCSR3()->rowsNumber, a3CSR3ValuesDevPtr,
-			a3CSR3ColumnsDevPtr, a3CSR3RowIndexDevPtr,
-			//block-local
-			svNormThresholdDevPtr, sharedFloatDevPtr, sharedPointerDevPtr, k1DevPtr,
-			k2DevPtr, k3DevPtr, k4DevPtr, prevStateDevPtr, curStateDevPtr);
+		::simulate(actualNBlocks, threadsPerBlock, (int) basisSize, timeStep,
+				(int) nTimeSteps, lDevPtr, model.getA1InCSR3()->rowsNumber,
+				a1CSR3ValuesDevPtr, a1CSR3ColumnsDevPtr, a1CSR3RowIndexDevPtr,
+				model.getA2InCSR3()->rowsNumber, a2CSR3ValuesDevPtr,
+				a2CSR3ColumnsDevPtr, a2CSR3RowIndexDevPtr,
+				model.getA3InCSR3()->rowsNumber, a3CSR3ValuesDevPtr,
+				a3CSR3ColumnsDevPtr, a3CSR3RowIndexDevPtr,
+				//block-local
+				svNormThresholdDevPtr, sharedFloatDevPtr, sharedPointerDevPtr,
+				k1DevPtr, k2DevPtr, k3DevPtr, k4DevPtr, prevStateDevPtr,
+				curStateDevPtr);
 
-	//check for the kernel errors
-				getLastCudaError("Monte-Carlo simulation failed");
+		//check for the kernel errors
+		getLastCudaError("Monte-Carlo simulation failed");
 
 		resultIndex = n * nBlocks;
 		for (int i = 0; i < actualNBlocks; ++i) {

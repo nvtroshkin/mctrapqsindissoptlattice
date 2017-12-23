@@ -22,13 +22,10 @@ class MonteCarloSimulator {
 	CUDA_COMPLEX_TYPE * const groundState;
 
 public:
-	__host__
 	MonteCarloSimulator(uint samplesNumber, Model &model);
 
-	__host__
 	~MonteCarloSimulator();
 
-	__host__
 	SimulationResult *simulate(FLOAT_TYPE timeStep, uint nTimeSteps,
 			uint threadsPerBlock, uint nBlocks);
 };

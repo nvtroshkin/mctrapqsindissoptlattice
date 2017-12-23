@@ -29,7 +29,7 @@ class Solver {
 #ifdef L_SPARSE
 	__restrict__ const CSR3Matrix * const lCSR3;
 #else
-	__restrict__                                   const CUDA_COMPLEX_TYPE * const l;
+	__restrict__                                     const CUDA_COMPLEX_TYPE * const l;
 #endif
 
 	const int a1CSR3RowsNum;
@@ -107,21 +107,26 @@ class Solver {
 	__device__ FLOAT_TYPE getNextRandomFloat();
 
 public:
+#ifdef TEST_MODE
+	__host__
+#endif
 	__device__
-	Solver(int basisSize, FLOAT_TYPE timeStep, int timeStepsNumber,
-	CUDA_COMPLEX_TYPE * l, int a1CSR3RowsNum,
-	CUDA_COMPLEX_TYPE * a1CSR3Values, int * a1CSR3Columns, int * a1CSR3RowIndex,
-			int a2CSR3RowsNum,
-			CUDA_COMPLEX_TYPE * a2CSR3Values, int * a2CSR3Columns,
-			int * a2CSR3RowIndex, int a3CSR3RowsNum,
-			CUDA_COMPLEX_TYPE * a3CSR3Values, int * a3CSR3Columns,
-			int * a3CSR3RowIndex,
+	Solver(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
+			const CUDA_COMPLEX_TYPE * l, int a1CSR3RowsNum,
+			const CUDA_COMPLEX_TYPE * a1CSR3Values, const int * a1CSR3Columns,
+			const int * a1CSR3RowIndex, int a2CSR3RowsNum,
+			const CUDA_COMPLEX_TYPE * a2CSR3Values, const int * a2CSR3Columns,
+			const int * a2CSR3RowIndex, int a3CSR3RowsNum,
+			const CUDA_COMPLEX_TYPE * a3CSR3Values, const int * a3CSR3Columns,
+			const int * a3CSR3RowIndex,
+			//non-const
 			FLOAT_TYPE * svNormThresholdPtr,
-			FLOAT_TYPE * sharedFloatPtr, CUDA_COMPLEX_TYPE ** sharedPointerPtr,
-			CUDA_COMPLEX_TYPE *k1,
-			CUDA_COMPLEX_TYPE *k2,
+			FLOAT_TYPE * sharedFloatPtr,
+			CUDA_COMPLEX_TYPE ** sharedPointerPtr,
+			CUDA_COMPLEX_TYPE *k1, CUDA_COMPLEX_TYPE *k2,
 			CUDA_COMPLEX_TYPE *k3, CUDA_COMPLEX_TYPE *k4,
-			CUDA_COMPLEX_TYPE *prevState, CUDA_COMPLEX_TYPE *curState
+			CUDA_COMPLEX_TYPE *prevState,
+			CUDA_COMPLEX_TYPE *curState
 //			,char * log, uint logMaxSize
 			);
 
@@ -169,10 +174,10 @@ public:
 
 	//-----------------Getters-----------------------------
 
-	const CUDA_COMPLEX_TYPE * const getCurState();
+	const CUDA_COMPLEX_TYPE * getCurState();
 };
 
-inline const CUDA_COMPLEX_TYPE * const Solver::getCurState() {
+inline const CUDA_COMPLEX_TYPE * Solver::getCurState() {
 	return curState;
 }
 
