@@ -15,11 +15,8 @@
 #define LOG_IF_APPROPRIATE(a) if(shouldPrintDebugInfo) (a)
 #endif
 
-#ifdef TEST_MODE
-__host__
-#endif
-__device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
-		const CUDA_COMPLEX_TYPE * l, int a1CSR3RowsNum,
+__host__ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep,
+		int nTimeSteps, const CUDA_COMPLEX_TYPE * l, int a1CSR3RowsNum,
 		const CUDA_COMPLEX_TYPE * a1CSR3Values, const int * a1CSR3Columns,
 		const int * a1CSR3RowIndex, int a2CSR3RowsNum,
 		const CUDA_COMPLEX_TYPE * a2CSR3Values, const int * a2CSR3Columns,
@@ -62,10 +59,15 @@ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
  */
 __device__ void Solver::solve() {
 
+	CUDA_COMPLEX_TYPE * const curStatePtr = sharedCurState;
+
 	CUDA_COMPLEX_TYPE * tempPointer;
 
 	//Only the first thread does all the job - others are used in fork regions only
 	//but they should go through the code to
+
+	__syncthreads();
+
 	if (threadIdx.x == 0) {
 		curand_init(ULONG_LONG_MAX / gridDim.x * blockIdx.x, 0ull, 0ull,
 				&randomGeneratorState);
@@ -73,6 +75,8 @@ __device__ void Solver::solve() {
 		//of the next jump
 		*sharedNormThresholdPtr = getNextRandomFloat();
 	}
+
+	__syncthreads();
 
 	//Calculate each sample by the time axis
 	for (int i = 0; i < nTimeSteps; ++i) {
@@ -96,9 +100,13 @@ __device__ void Solver::solve() {
 		//if the state vector at t(i+1) has a less square of the norm then the threshold
 		//try a self-written norm?
 
+		__syncthreads();
+
 		if (threadIdx.x == 0) {
 			*sharedFloatPtr = calcNormSquare(sharedCurState);
 		}
+
+		__syncthreads();
 
 #ifdef DEBUG_JUMPS
 		LOG_IF_APPROPRIATE(
@@ -106,7 +114,6 @@ __device__ void Solver::solve() {
 				<< ", current = " << norm2<< endl);
 #endif
 
-		__syncthreads();
 
 		if (*sharedNormThresholdPtr > *sharedFloatPtr) {
 #ifdef DEBUG_JUMPS
@@ -118,10 +125,15 @@ __device__ void Solver::solve() {
 
 			parallelMakeJump();
 
+			__syncthreads();
+
 			if (threadIdx.x == 0) {
 				//update the random time
 				*sharedNormThresholdPtr = getNextRandomFloat();
 			}
+
+			__syncthreads();
+
 #ifdef DEBUG_JUMPS
 			consoleStream << "New norm^2 threshold = " << svNormThreshold
 			<< endl;
@@ -132,21 +144,39 @@ __device__ void Solver::solve() {
 		//(they have their own pointers but pointing to the same memory address)
 		//the "restrict" pointers behaviour is maintained manually
 		//through synchronization
-		tempPointer = sharedCurState;
-		sharedCurState = sharedPrevState;
-		sharedPrevState = tempPointer;
+
+		__syncthreads();
+
+		if (threadIdx.x == 0) {
+			tempPointer = sharedCurState;
+			sharedCurState = sharedPrevState;
+			sharedPrevState = tempPointer;
+		}
+		__syncthreads();
 	}
 
 	//swap back - sharedCurState should hold the final result
-	tempPointer = sharedCurState;
-	sharedCurState = sharedPrevState;
-	sharedPrevState = tempPointer;
+
+	__syncthreads();
+
+	//Prepare the Solver for reusage
+	if (threadIdx.x == 0) {
+		if(curStatePtr != sharedCurState){
+			sharedPrevState = sharedCurState;
+			sharedCurState = curStatePtr;
+		}
+
+		//else all is OK
+	}
+
+	__syncthreads();
 
 #ifdef DEBUG_CONTINUOUS
 	LOG_IF_APPROPRIATE(print(consoleStream, "Psi(n+1)", sharedCurState, basisSize));
 #endif
 
-	//final state normalization
+	//final state normalization (because we are swapping the pointers inside - should use a local one
+	//which is equal to the host's)
 	parallelNormalizeVector(sharedCurState);
 
 #ifdef DEBUG_CONTINUOUS
@@ -254,6 +284,8 @@ __device__ inline void Solver::parallelMakeJump() {
 			a2CSR3RowIndex, sharedPrevState, sharedK2);
 	parallelMultCSR3MatrixVector(a3CSR3RowsNum, a3CSR3Values, a3CSR3Columns,
 			a3CSR3RowIndex, sharedPrevState, sharedK3);
+
+	__syncthreads();
 
 	if (threadIdx.x == 0) {
 		FLOAT_TYPE n12 = calcNormSquare(sharedK1);
@@ -493,19 +525,23 @@ __device__ inline void Solver::parallelCopy(
 }
 
 __device__ inline void Solver::parallelNormalizeVector(
-CUDA_COMPLEX_TYPE *stateVector) {
+CUDA_COMPLEX_TYPE *sharedStateVector) {
+
+	__syncthreads();
+
 //calculate norm
 	if (threadIdx.x == 0) {
-		*sharedFloatPtr = rsqrt(calcNormSquare(stateVector));
+		*sharedFloatPtr = rsqrt(calcNormSquare(sharedStateVector));
 	}
 
 	__syncthreads();
 
-	parallelCalcAlphaVector(*sharedFloatPtr, stateVector, stateVector);
+	parallelCalcAlphaVector(*sharedFloatPtr, sharedStateVector,
+			sharedStateVector);
 }
 
 #ifdef TEST_MODE
-__device__ FLOAT_TYPE _randomNumbers[100] = {0.0};	// no jumps
+__device__ FLOAT_TYPE _randomNumbers[1000] = { 0.0 };	// no jumps
 
 __device__ uint _randomNumberCounter = 0;
 #endif

@@ -31,9 +31,9 @@
  */
 TEST (MonteCarloSimulator, test) {
 	Model model(2, 2, 2, 2, 2, 2, 1.0, 20.0, 50.0, 30.0, 0.1);
-	MonteCarloSimulator monteCarloSimulator(32, model);
+	MonteCarloSimulator monteCarloSimulator(64, model);
 
-	uint nBlocks[3] = { 16, 32, 64 };
+	uint nBlocks[3] = { 32, 64, 128 };
 
 	for (int i = 0; i < 3; ++i) {
 		std::string caseId = "nBlocks = " + std::to_string(nBlocks[i]);
@@ -41,7 +41,7 @@ TEST (MonteCarloSimulator, test) {
 		std::cout << caseId << std::endl;
 
 		SimulationResult *result = monteCarloSimulator.simulate(0.00001, 1000,
-				64, nBlocks[i]);
+				128, nBlocks[i]);
 
 		const ImpreciseValue *firstCavityPhotons =
 				result->getFirstCavityPhotons();

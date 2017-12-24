@@ -11,9 +11,9 @@
 #include "include/SimulationResult.h"
 #include "mkl-constants.h"
 
-SimulationResult::SimulationResult(COMPLEX_TYPE **const result,
-                                   int samplesNumber, Model &model) :
-        result(result), samplesNumber(samplesNumber), basisSize(
+SimulationResult::SimulationResult(const std::vector<CUDA_COMPLEX_TYPE * > * const results,
+                                   const int samplesNumber, const Model &model) :
+        results(*results), samplesNumber(samplesNumber), basisSize(
         model.getBasisSize()), model(model) {
 }
 
@@ -23,9 +23,9 @@ SimulationResult::~SimulationResult() {
     delete avgPhotons3;
 
     for (int i = 0; i < samplesNumber; i++) {
-        delete[] result[i];
+        delete[] results[i];
     }
-    delete[] result;
+    delete &results;
 }
 
 ImpreciseValue *SimulationResult::getFirstCavityPhotons() const {
@@ -66,8 +66,8 @@ inline ImpreciseValue *SimulationResult::getAvgPhotons(
     COMPLEX_TYPE norm2;
     COMPLEX_TYPE tempVector[basisSize];
     for (int i = 0; i < samplesNumber; i++) {
-        complex_vMul(basisSize, result[i], statePhotonNumbers, tempVector);
-        complex_cblas_dotc_sub(basisSize, tempVector, NO_INC, result[i], NO_INC,
+        complex_vMul(basisSize, results[i], statePhotonNumbers, tempVector);
+        complex_cblas_dotc_sub(basisSize, tempVector, NO_INC, results[i], NO_INC,
                                &norm2);
 
         //store for the variance

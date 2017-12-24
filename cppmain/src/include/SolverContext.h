@@ -74,11 +74,16 @@ public:
 			Model &model);
 	~SolverContext();
 
-	Solver * createSolverDev(CUDA_COMPLEX_TYPE * initialState);
+	Solver * createSolverDev(const CUDA_COMPLEX_TYPE * const initialState);
+
+	Solver ** createSolverDev(const uint count,
+			const CUDA_COMPLEX_TYPE * const initialState);
 
 	void initAllSolvers(CUDA_COMPLEX_TYPE * initialState);
 
 	CUDA_COMPLEX_TYPE ** getAllResults();
+
+	void appendAllResults(std::vector<CUDA_COMPLEX_TYPE *> &results);
 
 	template<typename T> void transferState2Device(T * const devPtr,
 			const T * const hostPtr);
@@ -97,6 +102,12 @@ public:
 
 	template<typename T> void transferArray2Host(const T * const devPtr,
 			T * const hostPtr, const uint size);
+
+	template<typename T> void transferArray2Device(T * const devPtr,
+			const T * const hostPtr, const uint size);
+
+	template<typename T> T* transferArray2Device(const T * const hostPtr,
+			const uint size);
 
 	//---------------------------Getters-------------------------------
 
@@ -160,6 +171,22 @@ template<typename T> inline void SolverContext::transferArray2Host(
 	checkCudaErrors(
 			cudaMemcpy(hostPtr, devPtr, size * sizeof(T),
 					cudaMemcpyDeviceToHost));
+}
+
+template<typename T> inline void SolverContext::transferArray2Device(
+		T * const devPtr, const T * const hostPtr, const uint size) {
+	checkCudaErrors(
+			cudaMemcpy(devPtr, hostPtr, size * sizeof(T),
+					cudaMemcpyHostToDevice));
+}
+
+template<typename T> inline T* SolverContext::transferArray2Device(
+		const T * const hostPtr, const uint size) {
+	T * devPtr;
+	checkCudaErrors(cudaMalloc((void**) &devPtr, size * sizeof(T)));
+	transferArray2Device(devPtr, hostPtr, size);
+
+	return devPtr;
 }
 
 template<typename T> inline T* SolverContext::transferObject2Device(

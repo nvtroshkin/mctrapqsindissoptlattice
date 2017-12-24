@@ -46,20 +46,6 @@ SolverContext::SolverContext(uint maxSolvers, FLOAT_TYPE timeStep,
 				model.getA1InCSR3()->rowsNumber), a2CSR3RowsNum(
 				model.getA2InCSR3()->rowsNumber), a3CSR3RowsNum(
 				model.getA3InCSR3()->rowsNumber) {
-
-	int lSize = basisSize * basisSize;
-	checkCudaErrors(
-			cudaMalloc((void**) &lDevPtr, lSize * sizeof(CUDA_COMPLEX_TYPE)));
-	checkCudaErrors(
-			cudaMemcpy(lDevPtr, model.getL(), lSize * sizeof(CUDA_COMPLEX_TYPE), cudaMemcpyHostToDevice));
-
-	_initDevCSR3Matrix(model.getA1InCSR3(), &a1CSR3ValuesDevPtr,
-			&a1CSR3ColumnsDevPtr, &a1CSR3RowIndexDevPtr);
-	_initDevCSR3Matrix(model.getA2InCSR3(), &a2CSR3ValuesDevPtr,
-			&a2CSR3ColumnsDevPtr, &a2CSR3RowIndexDevPtr);
-	_initDevCSR3Matrix(model.getA3InCSR3(), &a3CSR3ValuesDevPtr,
-			&a3CSR3ColumnsDevPtr, &a3CSR3RowIndexDevPtr);
-
 	svNormThresholdDevPtrs = new std::vector<FLOAT_TYPE *>();
 	svNormThresholdDevPtrs->reserve(maxSolvers);
 
@@ -92,6 +78,20 @@ SolverContext::SolverContext(uint maxSolvers, FLOAT_TYPE timeStep,
 
 	solverDevPtrs = new std::vector<Solver *>();
 	solverDevPtrs->reserve(maxSolvers);
+
+	//Global state
+	int lSize = basisSize * basisSize;
+	checkCudaErrors(
+			cudaMalloc((void**) &lDevPtr, lSize * sizeof(CUDA_COMPLEX_TYPE)));
+	checkCudaErrors(
+			cudaMemcpy(lDevPtr, model.getL(), lSize * sizeof(CUDA_COMPLEX_TYPE), cudaMemcpyHostToDevice));
+
+	_initDevCSR3Matrix(model.getA1InCSR3(), &a1CSR3ValuesDevPtr,
+			&a1CSR3ColumnsDevPtr, &a1CSR3RowIndexDevPtr);
+	_initDevCSR3Matrix(model.getA2InCSR3(), &a2CSR3ValuesDevPtr,
+			&a2CSR3ColumnsDevPtr, &a2CSR3RowIndexDevPtr);
+	_initDevCSR3Matrix(model.getA3InCSR3(), &a3CSR3ValuesDevPtr,
+			&a3CSR3ColumnsDevPtr, &a3CSR3RowIndexDevPtr);
 }
 
 SolverContext::~SolverContext() {
@@ -143,7 +143,7 @@ SolverContext::~SolverContext() {
 	delete curStateDevPtrs;
 }
 
-Solver * SolverContext::createSolverDev(CUDA_COMPLEX_TYPE * initialState) {
+Solver * SolverContext::createSolverDev(const CUDA_COMPLEX_TYPE * const initialState) {
 	if (svNormThresholdDevPtrs->size() > maxSolvers) {
 		throw std::out_of_range(
 				"Max solver number achieved - no more solvers may be created");
@@ -217,9 +217,24 @@ Solver * SolverContext::createSolverDev(CUDA_COMPLEX_TYPE * initialState) {
 	return solverDevPtr;
 }
 
+Solver ** SolverContext::createSolverDev(const uint count, const CUDA_COMPLEX_TYPE * const initialState) {
+	Solver * solvers[count];
+	for (int i = 0; i < count; ++i) {
+		solvers[i] = createSolverDev(initialState);
+	}
+
+	return transferArray2Device(solvers, count);
+}
+
 void SolverContext::initAllSolvers(CUDA_COMPLEX_TYPE * initialState) {
 	for (CUDA_COMPLEX_TYPE * prevStateDevPtr : *prevStateDevPtrs) {
 		transferState2Device(prevStateDevPtr, initialState);
+	}
+}
+
+void SolverContext::appendAllResults(std::vector<CUDA_COMPLEX_TYPE *> &results) {
+	for (int i = 0; i < curStateDevPtrs->size(); ++i) {
+		results.push_back(transferState2Host(curStateDevPtrs->at(i)));
 	}
 }
 

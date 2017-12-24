@@ -8,6 +8,8 @@
 #ifndef SRC_INCLUDE_SIMULATIONRESULT_H_
 #define SRC_INCLUDE_SIMULATIONRESULT_H_
 
+#include <vector>
+
 #include "precision-definition.h"
 #include "Model.h"
 #include "ImpreciseValue.h"
@@ -16,11 +18,11 @@ class SimulationResult {
 
     typedef uint (Model::*PhotonNumberFuncP)(uint index) const;
 
-    COMPLEX_TYPE **const result;
+    const std::vector<CUDA_COMPLEX_TYPE * > &results;
     const int samplesNumber;
     const int basisSize;
 
-    Model &model;
+    const Model &model;
 
     //caches
     mutable ImpreciseValue *avgPhotons1 = nullptr;
@@ -30,8 +32,8 @@ class SimulationResult {
     ImpreciseValue *getAvgPhotons(PhotonNumberFuncP n) const;
 
 public:
-    SimulationResult(COMPLEX_TYPE **const result, int samplesNumber,
-                     Model &model);
+    SimulationResult(const std::vector<CUDA_COMPLEX_TYPE * > * const results, const int samplesNumber,
+                     const Model &model);
 
     ~SimulationResult();
 

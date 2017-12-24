@@ -1468,9 +1468,10 @@ TEST (Solver, severalJumps) {
 	uint * nThreadsArray = _createNThreadsArray(basisSize);
 
 	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
+		solverContext.initAllSolvers(initialState);
 		testSolverSolve(solverDevPtr, nThreadsArray[i], false);
 		results = solverContext.getAllResults();
-		print(std::cout, "result", results[0], basisSize);
+//		print(std::cout, "result", results[0], basisSize);
 		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
 				results[0], expectedResultState, RIGHT_DIGITS);
 		delete[] results[0];

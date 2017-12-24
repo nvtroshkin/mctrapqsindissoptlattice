@@ -51,23 +51,23 @@ class Solver {
 	curandStateMRG32k3a_t randomGeneratorState;
 
 	// shared via block mutables
-	FLOAT_TYPE * __restrict__ const sharedNormThresholdPtr;
+	FLOAT_TYPE * const sharedNormThresholdPtr;
 
-	FLOAT_TYPE * __restrict__ const sharedFloatPtr;
+	FLOAT_TYPE * const sharedFloatPtr;
 
-	CUDA_COMPLEX_TYPE ** sharedPointerPtr;
+	CUDA_COMPLEX_TYPE ** const sharedPointerPtr;
 
-	CUDA_COMPLEX_TYPE * __restrict__ const sharedK1;
+	CUDA_COMPLEX_TYPE * const sharedK1;
 
-	CUDA_COMPLEX_TYPE * __restrict__ const sharedK2;
+	CUDA_COMPLEX_TYPE * const sharedK2;
 
-	CUDA_COMPLEX_TYPE * __restrict__ const sharedK3;
+	CUDA_COMPLEX_TYPE * const sharedK3;
 
-	CUDA_COMPLEX_TYPE * __restrict__ const sharedK4;
+	CUDA_COMPLEX_TYPE * const sharedK4;
 
-	CUDA_COMPLEX_TYPE * __restrict__ sharedPrevState;
+	CUDA_COMPLEX_TYPE * sharedPrevState;
 
-	CUDA_COMPLEX_TYPE * __restrict__ sharedCurState;
+	CUDA_COMPLEX_TYPE * sharedCurState;
 
 //------------------Declarations-----------------------
 
@@ -97,10 +97,7 @@ class Solver {
 	__device__ FLOAT_TYPE getNextRandomFloat();
 
 public:
-#ifdef TEST_MODE
-	__host__
-#endif
-	__device__
+	__host__ __device__
 	Solver(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
 			const CUDA_COMPLEX_TYPE * l, int a1CSR3RowsNum,
 			const CUDA_COMPLEX_TYPE * a1CSR3Values, const int * a1CSR3Columns,

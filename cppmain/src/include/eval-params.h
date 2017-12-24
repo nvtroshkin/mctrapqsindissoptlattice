@@ -34,7 +34,7 @@ static const int SAMPLES_BETWEEN_PROGRESS = 10;
  * are processed by tiles (32 threads per warp and 8 cores per SM - should be multiple
  * of it too)
  */
-static const uint THREADS_PER_BLOCK = 32;
+static const uint THREADS_PER_BLOCK = 64;
 
 /**
  * One block = one trajectory. If it is small - there are many separate kernel

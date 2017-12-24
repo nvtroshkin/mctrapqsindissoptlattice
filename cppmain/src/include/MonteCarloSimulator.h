@@ -19,7 +19,7 @@ class MonteCarloSimulator {
 	Model &model;
 
 	//used as initial state
-	CUDA_COMPLEX_TYPE * const groundState;
+	CUDA_COMPLEX_TYPE * groundState;
 
 public:
 	MonteCarloSimulator(uint samplesNumber, Model &model);
