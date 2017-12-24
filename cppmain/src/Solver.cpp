@@ -27,13 +27,13 @@ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
 		const CUDA_COMPLEX_TYPE * a3CSR3Values, const int * a3CSR3Columns,
 		const int * a3CSR3RowIndex,
 		//non-const
-		FLOAT_TYPE * svNormThresholdPtr,
+		FLOAT_TYPE * sharedNormThresholdPtr,
 		FLOAT_TYPE * sharedFloatPtr,
 		CUDA_COMPLEX_TYPE ** sharedPointerPtr,
-		CUDA_COMPLEX_TYPE *k1, CUDA_COMPLEX_TYPE *k2,
-		CUDA_COMPLEX_TYPE *k3, CUDA_COMPLEX_TYPE *k4,
-		CUDA_COMPLEX_TYPE *prevState,
-		CUDA_COMPLEX_TYPE *curState) :
+		CUDA_COMPLEX_TYPE *sharedK1, CUDA_COMPLEX_TYPE *sharedK2,
+		CUDA_COMPLEX_TYPE *sharedK3, CUDA_COMPLEX_TYPE *sharedK4,
+		CUDA_COMPLEX_TYPE *sharedPrevState,
+		CUDA_COMPLEX_TYPE *sharedCurState) :
 		tStep(timeStep), tHalfStep(0.5 * timeStep), tSixthStep(timeStep / 6.0), nTimeSteps(
 				nTimeSteps), basisSize(basisSize),
 #ifdef L_SPARSE
@@ -50,10 +50,10 @@ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
 						a3CSR3Values), a3CSR3Columns(a3CSR3Columns), a3CSR3RowIndex(
 						a3CSR3RowIndex),
 				//shared
-				svNormThresholdPtr(svNormThresholdPtr), sharedFloatPtr(
-						sharedFloatPtr), sharedPointerPtr(sharedPointerPtr), k1(
-						k1), k2(k2), k3(k3), k4(k4), prevState(prevState), curState(
-						curState) {
+				sharedNormThresholdPtr(sharedNormThresholdPtr), sharedFloatPtr(
+						sharedFloatPtr), sharedPointerPtr(sharedPointerPtr), sharedK1(
+						sharedK1), sharedK2(sharedK2), sharedK3(sharedK3), sharedK4(sharedK4), sharedPrevState(sharedPrevState), sharedCurState(
+						sharedCurState) {
 }
 
 /**
@@ -67,10 +67,10 @@ __device__ void Solver::solve() {
 	//but they should go through the code to
 	if (threadIdx.x == 0) {
 		curand_init(ULONG_LONG_MAX / gridDim.x * blockIdx.x, 0ull, 0ull,
-				&state);
+				&randomGeneratorState);
 		//get a random number for the calculation of the random waiting time
 		//of the next jump
-		*svNormThresholdPtr = getNextRandomFloat();
+		*sharedNormThresholdPtr = getNextRandomFloat();
 	}
 
 	//Calculate each sample by the time axis
@@ -96,7 +96,7 @@ __device__ void Solver::solve() {
 		//try a self-written norm?
 
 		if (threadIdx.x == 0) {
-			*sharedFloatPtr = calcNormSquare(curState);
+			*sharedFloatPtr = calcNormSquare(sharedCurState);
 		}
 
 #ifdef DEBUG_JUMPS
@@ -107,7 +107,7 @@ __device__ void Solver::solve() {
 
 		__syncthreads();
 
-		if (*svNormThresholdPtr > *sharedFloatPtr) {
+		if (*sharedNormThresholdPtr > *sharedFloatPtr) {
 #ifdef DEBUG_JUMPS
 			consoleStream << "Jump" << endl;
 			consoleStream << "Step: " << i << endl;
@@ -119,7 +119,7 @@ __device__ void Solver::solve() {
 
 			if (threadIdx.x == 0) {
 				//update the random time
-				*svNormThresholdPtr = getNextRandomFloat();
+				*sharedNormThresholdPtr = getNextRandomFloat();
 			}
 #ifdef DEBUG_JUMPS
 			consoleStream << "New norm^2 threshold = " << svNormThreshold
@@ -131,26 +131,26 @@ __device__ void Solver::solve() {
 		//(they have their own pointers but pointing to the same memory address)
 		//the "restrict" pointers behaviour is maintained manually
 		//through synchronization
-		tempPointer = curState;
-		curState = prevState;
-		prevState = tempPointer;
+		tempPointer = sharedCurState;
+		sharedCurState = sharedPrevState;
+		sharedPrevState = tempPointer;
 	}
 
-	//swap back - curState should hold the final result
-	tempPointer = curState;
-	curState = prevState;
-	prevState = tempPointer;
+	//swap back - sharedCurState should hold the final result
+	tempPointer = sharedCurState;
+	sharedCurState = sharedPrevState;
+	sharedPrevState = tempPointer;
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "Psi(n+1)", curState, basisSize));
+	LOG_IF_APPROPRIATE(print(consoleStream, "Psi(n+1)", sharedCurState, basisSize));
 #endif
 
 	//final state normalization
-	parallelNormalizeVector(curState);
+	parallelNormalizeVector(sharedCurState);
 
 #ifdef DEBUG_CONTINUOUS
 	LOG_IF_APPROPRIATE(
-			print(consoleStream, "Normed Psi(n+1)", curState, basisSize));
+			print(consoleStream, "Normed Psi(n+1)", sharedCurState, basisSize));
 #endif
 }
 
@@ -158,48 +158,48 @@ __device__ inline void Solver::parallelRungeKuttaStep() {
 	//uses nextState as a temporary storage vector
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "prevState", prevState, basisSize));
+	LOG_IF_APPROPRIATE(print(consoleStream, "sharedPrevState", sharedPrevState, basisSize));
 #endif
 
 	//See: https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
-	//k1 = f(t_n, y_n);
-	parallelMultLV(prevState, k1);
+	//sharedK1 = f(t_n, y_n);
+	parallelMultLV(sharedPrevState, sharedK1);
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "k1", k1, basisSize));
+	LOG_IF_APPROPRIATE(print(consoleStream, "sharedK1", sharedK1, basisSize));
 #endif
 
-	//k2 = f(t_n + h/2, y_n + h/2 * k1);
-	//1: curState = y_n + h/2 * k1
-	parallelCalcV1PlusAlphaV2(prevState, tHalfStep, k1, curState);
-	//2: k2=L curState
-	parallelMultLV(curState, k2);
+	//sharedK2 = f(t_n + h/2, y_n + h/2 * sharedK1);
+	//1: sharedCurState = y_n + h/2 * sharedK1
+	parallelCalcV1PlusAlphaV2(sharedPrevState, tHalfStep, sharedK1, sharedCurState);
+	//2: sharedK2=L sharedCurState
+	parallelMultLV(sharedCurState, sharedK2);
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "k2", k2, basisSize));
+	LOG_IF_APPROPRIATE(print(consoleStream, "sharedK2", sharedK2, basisSize));
 #endif
 
-	//k3 = f(t_n + h/2, y_n + h/2 * k2)
-	//1: curState = y_n + h/2 * k2
-	parallelCalcV1PlusAlphaV2(prevState, tHalfStep, k2, curState);
-	//2: k3=L curState
-	parallelMultLV(curState, k3);
+	//sharedK3 = f(t_n + h/2, y_n + h/2 * sharedK2)
+	//1: sharedCurState = y_n + h/2 * sharedK2
+	parallelCalcV1PlusAlphaV2(sharedPrevState, tHalfStep, sharedK2, sharedCurState);
+	//2: sharedK3=L sharedCurState
+	parallelMultLV(sharedCurState, sharedK3);
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "k3", k3, basisSize));
+	LOG_IF_APPROPRIATE(print(consoleStream, "sharedK3", sharedK3, basisSize));
 #endif
 
-	//k4 = f(t_n + h, y_n + h * k3);
-	//1: curState = y_n + h * k3
-	parallelCalcV1PlusAlphaV2(prevState, tStep, k3, curState);
-	//2: k4=L curState
-	parallelMultLV(curState, k4);
+	//sharedK4 = f(t_n + h, y_n + h * sharedK3);
+	//1: sharedCurState = y_n + h * sharedK3
+	parallelCalcV1PlusAlphaV2(sharedPrevState, tStep, sharedK3, sharedCurState);
+	//2: sharedK4=L sharedCurState
+	parallelMultLV(sharedCurState, sharedK4);
 
 #ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "k4", k4, basisSize));
+	LOG_IF_APPROPRIATE(print(consoleStream, "sharedK4", sharedK4, basisSize));
 #endif
 
-	//y_(n+1) = y_n + (h/6)(k1 + 2k2 + 2k3 + k4)
+	//y_(n+1) = y_n + (h/6)(sharedK1 + 2k2 + 2k3 + sharedK4)
 	parallelCalcCurrentY();
 }
 
@@ -215,14 +215,14 @@ __device__ inline void Solver::parallelCalcCurrentY() {
 	for (int i = 0; i < blocksPerVector; ++i) {
 		index = threadIdx.x + i * blockDim.x;
 		if (index < basisSize) {
-			curState[index].x = prevState[index].x
+			sharedCurState[index].x = sharedPrevState[index].x
 					+ tSixthStep
-							* (k1[index].x + 2 * k2[index].x + 2 * k3[index].x
-									+ k4[index].x);
-			curState[index].y = prevState[index].y
+							* (sharedK1[index].x + 2 * sharedK2[index].x + 2 * sharedK3[index].x
+									+ sharedK4[index].x);
+			sharedCurState[index].y = sharedPrevState[index].y
 					+ tSixthStep
-							* (k1[index].y + 2 * k2[index].y + 2 * k3[index].y
-									+ k4[index].y);
+							* (sharedK1[index].y + 2 * sharedK2[index].y + 2 * sharedK3[index].y
+									+ sharedK4[index].y);
 		}
 	}
 
@@ -235,23 +235,23 @@ __device__ inline void Solver::parallelMakeJump() {
 //let's suppose it was at time t(i)
 
 #ifdef DEBUG_JUMPS
-	print(consoleStream, "State at the jump moment", prevState, basisSize);
+	print(consoleStream, "State at the jump moment", sharedPrevState, basisSize);
 #endif
 
 //calculate vectors and their norms after each type of jump
 //the jump is made from the previous step state
 //(in the first cavity, in the second or in the third)
 	parallelMultCSR3MatrixVector(a1CSR3RowsNum, a1CSR3Values, a1CSR3Columns,
-			a1CSR3RowIndex, prevState, k1);
+			a1CSR3RowIndex, sharedPrevState, sharedK1);
 	parallelMultCSR3MatrixVector(a2CSR3RowsNum, a2CSR3Values, a2CSR3Columns,
-			a2CSR3RowIndex, prevState, k2);
+			a2CSR3RowIndex, sharedPrevState, sharedK2);
 	parallelMultCSR3MatrixVector(a3CSR3RowsNum, a3CSR3Values, a3CSR3Columns,
-			a3CSR3RowIndex, prevState, k3);
+			a3CSR3RowIndex, sharedPrevState, sharedK3);
 
 	if (threadIdx.x == 0) {
-		FLOAT_TYPE n12 = calcNormSquare(k1);
-		FLOAT_TYPE n22 = calcNormSquare(k2);
-		FLOAT_TYPE n32 = calcNormSquare(k3);
+		FLOAT_TYPE n12 = calcNormSquare(sharedK1);
+		FLOAT_TYPE n22 = calcNormSquare(sharedK2);
+		FLOAT_TYPE n32 = calcNormSquare(sharedK3);
 
 //calculate probabilities of each jump
 		FLOAT_TYPE n2Sum = n12 + n22 + n32;
@@ -259,13 +259,13 @@ __device__ inline void Solver::parallelMakeJump() {
 		FLOAT_TYPE p12 = (n12 + n22) / n2Sum;	//two first cavities together
 
 #ifdef DEBUG_JUMPS
-		print(consoleStream, "If jump will be in the first cavity", k1, basisSize);
+		print(consoleStream, "If jump will be in the first cavity", sharedK1, basisSize);
 		consoleStream << "it's norm^2: " << n12.real << endl;
 
-		print(consoleStream, "If jump will be in the second cavity", k2, basisSize);
+		print(consoleStream, "If jump will be in the second cavity", sharedK2, basisSize);
 		consoleStream << "it's norm^2: " << n22.real << endl;
 
-		print(consoleStream, "If jump will be in the third cavity", k3, basisSize);
+		print(consoleStream, "If jump will be in the third cavity", sharedK3, basisSize);
 		consoleStream << "it's norm^2: " << n32.real << endl;
 
 		consoleStream << "Probabilities of the jumps: in the first = " << p1
@@ -279,32 +279,32 @@ __device__ inline void Solver::parallelMakeJump() {
 #ifdef DEBUG_JUMPS
 			consoleStream << "It jumped in the FIRST cavity" << endl;
 #endif
-			*sharedPointerPtr = k1;
+			*sharedPointerPtr = sharedK1;
 			*sharedFloatPtr = n12;
 		} else if (rnd < p12) {
 #ifdef DEBUG_JUMPS
 			consoleStream << "Jumped in the SECOND cavity" << endl;
 #endif
-			*sharedPointerPtr = k2;
+			*sharedPointerPtr = sharedK2;
 			*sharedFloatPtr = n22;
 		} else {
 #ifdef DEBUG_JUMPS
 			consoleStream << "Jumped in the THIRD cavity" << endl;
 #endif
 			//do not remove - it should be initialized (or cleared)
-			*sharedPointerPtr = k3;
+			*sharedPointerPtr = sharedK3;
 			*sharedFloatPtr = n32;
 		}
 	}
 
 	__syncthreads();
 
-	parallelCopy((*sharedPointerPtr), curState);
-	parallelNormalizeVector(curState);
+	parallelCopy((*sharedPointerPtr), sharedCurState);
+	parallelNormalizeVector(sharedCurState);
 
 #ifdef DEBUG_JUMPS
 	print(consoleStream, "State vector after the jump and normalization",
-			curState, basisSize);
+			sharedCurState, basisSize);
 #endif
 }
 

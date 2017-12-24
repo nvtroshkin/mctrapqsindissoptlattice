@@ -48,26 +48,26 @@ class Solver {
 	const int * __restrict__ const a3CSR3RowIndex;
 
 	//------------------caches-----------------------------
-	curandStateMRG32k3a_t state;
+	curandStateMRG32k3a_t randomGeneratorState;
 
-	//shared between threads in a block
-	FLOAT_TYPE * __restrict__ const svNormThresholdPtr;
+	// shared via block mutables
+	FLOAT_TYPE * __restrict__ const sharedNormThresholdPtr;
 
 	FLOAT_TYPE * __restrict__ const sharedFloatPtr;
 
 	CUDA_COMPLEX_TYPE ** sharedPointerPtr;
 
-	CUDA_COMPLEX_TYPE * __restrict__ const k1;
+	CUDA_COMPLEX_TYPE * __restrict__ const sharedK1;
 
-	CUDA_COMPLEX_TYPE * __restrict__ const k2;
+	CUDA_COMPLEX_TYPE * __restrict__ const sharedK2;
 
-	CUDA_COMPLEX_TYPE * __restrict__ const k3;
+	CUDA_COMPLEX_TYPE * __restrict__ const sharedK3;
 
-	CUDA_COMPLEX_TYPE * __restrict__ const k4;
+	CUDA_COMPLEX_TYPE * __restrict__ const sharedK4;
 
-	CUDA_COMPLEX_TYPE * __restrict__ prevState;
+	CUDA_COMPLEX_TYPE * __restrict__ sharedPrevState;
 
-	CUDA_COMPLEX_TYPE * __restrict__ curState;
+	CUDA_COMPLEX_TYPE * __restrict__ sharedCurState;
 
 //------------------Declarations-----------------------
 
@@ -110,13 +110,13 @@ public:
 			const CUDA_COMPLEX_TYPE * a3CSR3Values, const int * a3CSR3Columns,
 			const int * a3CSR3RowIndex,
 			//non-const
-			FLOAT_TYPE * svNormThresholdPtr,
+			FLOAT_TYPE * sharedNormThresholdPtr,
 			FLOAT_TYPE * sharedFloatPtr,
 			CUDA_COMPLEX_TYPE ** sharedPointerPtr,
-			CUDA_COMPLEX_TYPE *k1, CUDA_COMPLEX_TYPE *k2,
-			CUDA_COMPLEX_TYPE *k3, CUDA_COMPLEX_TYPE *k4,
-			CUDA_COMPLEX_TYPE *prevState,
-			CUDA_COMPLEX_TYPE *curState
+			CUDA_COMPLEX_TYPE *sharedK1, CUDA_COMPLEX_TYPE *sharedK2,
+			CUDA_COMPLEX_TYPE *sharedK3, CUDA_COMPLEX_TYPE *sharedK4,
+			CUDA_COMPLEX_TYPE *sharedPrevState,
+			CUDA_COMPLEX_TYPE *sharedCurState
 			);
 
 	/**
@@ -167,7 +167,7 @@ public:
 };
 
 inline const CUDA_COMPLEX_TYPE * Solver::getCurState() {
-	return curState;
+	return sharedCurState;
 }
 
 #endif /* SRC_INCLUDE_SOLVER_H_ */
