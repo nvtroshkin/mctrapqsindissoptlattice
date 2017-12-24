@@ -23,7 +23,7 @@ static const int SAMPLES_BETWEEN_PROGRESS = 10;
 /**
  * Print info about how dense matrices of the operators are
  */
-#define CHECK_SPARSITY
+//#define CHECK_SPARSITY
 
 /**
  * Please, keep in mind that it is very GPU-specific. My GPU's multiprocessors can

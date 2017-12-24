@@ -52,7 +52,8 @@ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
 				//shared
 				sharedNormThresholdPtr(sharedNormThresholdPtr), sharedFloatPtr(
 						sharedFloatPtr), sharedPointerPtr(sharedPointerPtr), sharedK1(
-						sharedK1), sharedK2(sharedK2), sharedK3(sharedK3), sharedK4(sharedK4), sharedPrevState(sharedPrevState), sharedCurState(
+						sharedK1), sharedK2(sharedK2), sharedK3(sharedK3), sharedK4(
+						sharedK4), sharedPrevState(sharedPrevState), sharedCurState(
 						sharedCurState) {
 }
 
@@ -171,7 +172,8 @@ __device__ inline void Solver::parallelRungeKuttaStep() {
 
 	//sharedK2 = f(t_n + h/2, y_n + h/2 * sharedK1);
 	//1: sharedCurState = y_n + h/2 * sharedK1
-	parallelCalcV1PlusAlphaV2(sharedPrevState, tHalfStep, sharedK1, sharedCurState);
+	parallelCalcV1PlusAlphaV2(sharedPrevState, tHalfStep, sharedK1,
+			sharedCurState);
 	//2: sharedK2=L sharedCurState
 	parallelMultLV(sharedCurState, sharedK2);
 
@@ -181,7 +183,8 @@ __device__ inline void Solver::parallelRungeKuttaStep() {
 
 	//sharedK3 = f(t_n + h/2, y_n + h/2 * sharedK2)
 	//1: sharedCurState = y_n + h/2 * sharedK2
-	parallelCalcV1PlusAlphaV2(sharedPrevState, tHalfStep, sharedK2, sharedCurState);
+	parallelCalcV1PlusAlphaV2(sharedPrevState, tHalfStep, sharedK2,
+			sharedCurState);
 	//2: sharedK3=L sharedCurState
 	parallelMultLV(sharedCurState, sharedK3);
 
@@ -215,14 +218,18 @@ __device__ inline void Solver::parallelCalcCurrentY() {
 	for (int i = 0; i < blocksPerVector; ++i) {
 		index = threadIdx.x + i * blockDim.x;
 		if (index < basisSize) {
-			sharedCurState[index].x = sharedPrevState[index].x
-					+ tSixthStep
-							* (sharedK1[index].x + 2 * sharedK2[index].x + 2 * sharedK3[index].x
-									+ sharedK4[index].x);
-			sharedCurState[index].y = sharedPrevState[index].y
-					+ tSixthStep
-							* (sharedK1[index].y + 2 * sharedK2[index].y + 2 * sharedK3[index].y
-									+ sharedK4[index].y);
+			sharedCurState[index].x =
+					sharedPrevState[index].x
+							+ tSixthStep
+									* (sharedK1[index].x + 2 * sharedK2[index].x
+											+ 2 * sharedK3[index].x
+											+ sharedK4[index].x);
+			sharedCurState[index].y =
+					sharedPrevState[index].y
+							+ tSixthStep
+									* (sharedK1[index].y + 2 * sharedK2[index].y
+											+ 2 * sharedK3[index].y
+											+ sharedK4[index].y);
 		}
 	}
 
@@ -507,7 +514,7 @@ __device__ inline FLOAT_TYPE Solver::getNextRandomFloat() {
 #ifdef TEST_MODE
 	return _randomNumbers[_randomNumberCounter++];
 #else
-	return curand_uniform(&state);
+	return curand_uniform(&randomGeneratorState);
 #endif
 }
 
