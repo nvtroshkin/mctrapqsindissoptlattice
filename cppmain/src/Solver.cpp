@@ -33,8 +33,7 @@ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
 		CUDA_COMPLEX_TYPE *k1, CUDA_COMPLEX_TYPE *k2,
 		CUDA_COMPLEX_TYPE *k3, CUDA_COMPLEX_TYPE *k4,
 		CUDA_COMPLEX_TYPE *prevState,
-		CUDA_COMPLEX_TYPE *curState/*, char * log,
-		 uint logMaxSize*/) :
+		CUDA_COMPLEX_TYPE *curState) :
 		tStep(timeStep), tHalfStep(0.5 * timeStep), tSixthStep(timeStep / 6.0), nTimeSteps(
 				nTimeSteps), basisSize(basisSize),
 #ifdef L_SPARSE
@@ -50,11 +49,11 @@ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
 						a2CSR3RowIndex), a3CSR3RowsNum(a3CSR3RowsNum), a3CSR3Values(
 						a3CSR3Values), a3CSR3Columns(a3CSR3Columns), a3CSR3RowIndex(
 						a3CSR3RowIndex),
-						//shared
-						svNormThresholdPtr(svNormThresholdPtr), sharedFloatPtr(
+				//shared
+				svNormThresholdPtr(svNormThresholdPtr), sharedFloatPtr(
 						sharedFloatPtr), sharedPointerPtr(sharedPointerPtr), k1(
 						k1), k2(k2), k3(k3), k4(k4), prevState(prevState), curState(
-						curState), log(log)/*, logMaxSize(logMaxSize), logSize(0)*/{
+						curState) {
 }
 
 /**
@@ -67,8 +66,8 @@ __device__ void Solver::solve() {
 	//Only the first thread does all the job - others are used in fork regions only
 	//but they should go through the code to
 	if (threadIdx.x == 0) {
-		curand_init(
-		ULONG_LONG_MAX / gridDim.x * blockIdx.x, 0ull, 0ull, &state);
+		curand_init(ULONG_LONG_MAX / gridDim.x * blockIdx.x, 0ull, 0ull,
+				&state);
 		//get a random number for the calculation of the random waiting time
 		//of the next jump
 		*svNormThresholdPtr = getNextRandomFloat();
@@ -77,10 +76,8 @@ __device__ void Solver::solve() {
 	//Calculate each sample by the time axis
 	for (int i = 0; i < nTimeSteps; ++i) {
 #if defined(DEBUG_CONTINUOUS) || defined(DEBUG_JUMPS)
-		if(threadIdx.x == 0) {
-			shouldPrintDebugInfo = (i % TIME_STEPS_BETWEEN_DEBUG == 0);
-			LOG_IF_APPROPRIATE("Step number" + *svNormThresholdPtr);
-		}
+		shouldPrintDebugInfo = (i % TIME_STEPS_BETWEEN_DEBUG == 0);
+		LOG_IF_APPROPRIATE("Step number " + std::to_string(nTimeSteps));
 #endif
 
 		//Before the next jump there is deterministic evolution guided by
@@ -145,15 +142,15 @@ __device__ void Solver::solve() {
 	prevState = tempPointer;
 
 #ifdef DEBUG_CONTINUOUS
-//	LOG_IF_APPROPRIATE(print(consoleStream, "Psi(n+1)", curState, basisSize));
+	LOG_IF_APPROPRIATE(print(consoleStream, "Psi(n+1)", curState, basisSize));
 #endif
 
 	//final state normalization
 	parallelNormalizeVector(curState);
 
 #ifdef DEBUG_CONTINUOUS
-//	LOG_IF_APPROPRIATE(
-//			print(consoleStream, "Normed Psi(n+1)", curState, basisSize));
+	LOG_IF_APPROPRIATE(
+			print(consoleStream, "Normed Psi(n+1)", curState, basisSize));
 #endif
 }
 
@@ -161,7 +158,7 @@ __device__ inline void Solver::parallelRungeKuttaStep() {
 	//uses nextState as a temporary storage vector
 
 #ifdef DEBUG_CONTINUOUS
-//	LOG_IF_APPROPRIATE(print(consoleStream, "prevState", prevState, basisSize));
+	LOG_IF_APPROPRIATE(print(consoleStream, "prevState", prevState, basisSize));
 #endif
 
 	//See: https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
@@ -169,7 +166,7 @@ __device__ inline void Solver::parallelRungeKuttaStep() {
 	parallelMultLV(prevState, k1);
 
 #ifdef DEBUG_CONTINUOUS
-//	LOG_IF_APPROPRIATE(print(consoleStream, "k1", k1, basisSize));
+	LOG_IF_APPROPRIATE(print(consoleStream, "k1", k1, basisSize));
 #endif
 
 	//k2 = f(t_n + h/2, y_n + h/2 * k1);
@@ -179,7 +176,7 @@ __device__ inline void Solver::parallelRungeKuttaStep() {
 	parallelMultLV(curState, k2);
 
 #ifdef DEBUG_CONTINUOUS
-//	LOG_IF_APPROPRIATE(print(consoleStream, "k2", k2, basisSize));
+	LOG_IF_APPROPRIATE(print(consoleStream, "k2", k2, basisSize));
 #endif
 
 	//k3 = f(t_n + h/2, y_n + h/2 * k2)
@@ -189,7 +186,7 @@ __device__ inline void Solver::parallelRungeKuttaStep() {
 	parallelMultLV(curState, k3);
 
 #ifdef DEBUG_CONTINUOUS
-//	LOG_IF_APPROPRIATE(print(consoleStream, "k3", k3, basisSize));
+	LOG_IF_APPROPRIATE(print(consoleStream, "k3", k3, basisSize));
 #endif
 
 	//k4 = f(t_n + h, y_n + h * k3);
@@ -199,7 +196,7 @@ __device__ inline void Solver::parallelRungeKuttaStep() {
 	parallelMultLV(curState, k4);
 
 #ifdef DEBUG_CONTINUOUS
-//	LOG_IF_APPROPRIATE(print(consoleStream, "k4", k4, basisSize));
+	LOG_IF_APPROPRIATE(print(consoleStream, "k4", k4, basisSize));
 #endif
 
 	//y_(n+1) = y_n + (h/6)(k1 + 2k2 + 2k3 + k4)
@@ -501,7 +498,7 @@ CUDA_COMPLEX_TYPE *stateVector) {
 }
 
 #ifdef TEST_MODE
-__device__ FLOAT_TYPE _randomNumbers[100] = { 0.0 };	// no jumps
+__device__ FLOAT_TYPE _randomNumbers[100] = {0.0};	// no jumps
 
 __device__ uint _randomNumberCounter = 0;
 #endif
@@ -513,33 +510,6 @@ __device__ inline FLOAT_TYPE Solver::getNextRandomFloat() {
 	return curand_uniform(&state);
 #endif
 }
-
-//__device__ uint strlen(const char * str) {
-//	uint len = 0;
-//	while (str[len] != '\0') {
-//		++len;
-//	}
-//}
-
-//__device__ uint strcat(const char * str1, const char * str2) {
-//
-//}
-
-//__device__ inline void Solver::printLog(const char * str) {
-//	if (threadIdx.x == 0) {
-//		uint strLen = strlen(str);
-//		if (logMaxSize > logSize + strLen) {
-//			//if there is enough space
-//			for (int i = 0; i < strLen; ++i) {
-//				log[logSize + i] = str[i];
-//			}
-//
-//			logSize += strLen;
-//
-//			log[logSize] = '\0';
-//		}
-//	}
-//}
 
 //template<typename T, const uint blk>
 //__device__ void multMatrixVector(const T * __restrict__ matrix, const T * __restrict__ vector,

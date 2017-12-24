@@ -41,7 +41,7 @@ FLOAT_TYPE timeStep, int nTimeSteps, const CUDA_COMPLEX_TYPE * lDevPtr,
 			svNormThresholdDevPtr[blockIdx.x], sharedFloatDevPtr[blockIdx.x],
 			sharedPointerDevPtr[blockIdx.x], k1DevPtr[blockIdx.x], k2DevPtr[blockIdx.x],
 			k3DevPtr[blockIdx.x], k4DevPtr[blockIdx.x], prevStateDevPtr[blockIdx.x],
-			curStateDevPtr[blockIdx.x]/*, NULL, 0*/);
+			curStateDevPtr[blockIdx.x]);
 	solver.solve();
 }
 

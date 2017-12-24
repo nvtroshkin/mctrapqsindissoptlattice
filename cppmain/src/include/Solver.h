@@ -29,7 +29,7 @@ class Solver {
 #ifdef L_SPARSE
 	__restrict__ const CSR3Matrix * const lCSR3;
 #else
-	__restrict__                                     const CUDA_COMPLEX_TYPE * const l;
+	__restrict__ const CUDA_COMPLEX_TYPE * const l;
 #endif
 
 	const int a1CSR3RowsNum;
@@ -68,16 +68,6 @@ class Solver {
 	CUDA_COMPLEX_TYPE * __restrict__ prevState;
 
 	CUDA_COMPLEX_TYPE * __restrict__ curState;
-
-	//-------------DEBUG---------------------------------------
-
-	bool shouldPrintDebugInfo = false;
-
-	char * __restrict__ const log;
-
-//	uint logMaxSize;
-//
-//	uint logSize;
 
 //------------------Declarations-----------------------
 
@@ -127,7 +117,6 @@ public:
 			CUDA_COMPLEX_TYPE *k3, CUDA_COMPLEX_TYPE *k4,
 			CUDA_COMPLEX_TYPE *prevState,
 			CUDA_COMPLEX_TYPE *curState
-//			,char * log, uint logMaxSize
 			);
 
 	/**
