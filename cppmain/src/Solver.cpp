@@ -16,13 +16,13 @@
 #endif
 
 __host__ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep,
-		int nTimeSteps, const CUDA_COMPLEX_TYPE * l, int a1CSR3RowsNum,
-		const CUDA_COMPLEX_TYPE * a1CSR3Values, const int * a1CSR3Columns,
-		const int * a1CSR3RowIndex, int a2CSR3RowsNum,
-		const CUDA_COMPLEX_TYPE * a2CSR3Values, const int * a2CSR3Columns,
-		const int * a2CSR3RowIndex, int a3CSR3RowsNum,
-		const CUDA_COMPLEX_TYPE * a3CSR3Values, const int * a3CSR3Columns,
-		const int * a3CSR3RowIndex,
+		int nTimeSteps, const CUDA_COMPLEX_TYPE * rungeKuttaOperator,
+		int a1CSR3RowsNum, const CUDA_COMPLEX_TYPE * a1CSR3Values,
+		const int * a1CSR3Columns, const int * a1CSR3RowIndex,
+		int a2CSR3RowsNum, const CUDA_COMPLEX_TYPE * a2CSR3Values,
+		const int * a2CSR3Columns, const int * a2CSR3RowIndex,
+		int a3CSR3RowsNum, const CUDA_COMPLEX_TYPE * a3CSR3Values,
+		const int * a3CSR3Columns, const int * a3CSR3RowIndex,
 		//non-const
 		FLOAT_TYPE * sharedNormThresholdPtr,
 		FLOAT_TYPE * sharedFloatPtr,
@@ -37,7 +37,7 @@ __host__ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep,
 				lCSR3(
 						model.getLInCSR3())
 #else
-				l(l)
+				rungeKuttaOperator(rungeKuttaOperator)
 #endif
 						, a1CSR3RowsNum(a1CSR3RowsNum), a1CSR3Values(
 						a1CSR3Values), a1CSR3Columns(a1CSR3Columns), a1CSR3RowIndex(
@@ -92,7 +92,8 @@ __device__ void Solver::solve() {
 		//at t(i+1)...
 		//write the f function
 
-		parallelRungeKuttaStep();
+		//y_(n+1) = 1 + L (h + L (0.5 h^2 + L (1/6 h^3 + 1/24 h^4 L))) yn
+		parallelMultMatrixVector(rungeKuttaOperator, basisSize, basisSize, sharedPrevState, sharedCurState);
 
 		//...falls below the threshold, which is a random number
 		//uniformly distributed between [0,1] - svNormThreshold
@@ -113,7 +114,6 @@ __device__ void Solver::solve() {
 				consoleStream << "Norm: threshold = " << svNormThreshold
 				<< ", current = " << norm2<< endl);
 #endif
-
 
 		if (*sharedNormThresholdPtr > *sharedFloatPtr) {
 #ifdef DEBUG_JUMPS
@@ -161,7 +161,7 @@ __device__ void Solver::solve() {
 
 	//Prepare the Solver for reusage
 	if (threadIdx.x == 0) {
-		if(curStatePtr != sharedCurState){
+		if (curStatePtr != sharedCurState) {
 			sharedPrevState = sharedCurState;
 			sharedCurState = curStatePtr;
 		}
@@ -183,88 +183,6 @@ __device__ void Solver::solve() {
 	LOG_IF_APPROPRIATE(
 			print(consoleStream, "Normed Psi(n+1)", sharedCurState, basisSize));
 #endif
-}
-
-__device__ inline void Solver::parallelRungeKuttaStep() {
-	//uses nextState as a temporary storage vector
-
-#ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "sharedPrevState", sharedPrevState, basisSize));
-#endif
-
-	//See: https://en.wikipedia.org/wiki/Runge%E2%80%93Kutta_methods
-	//sharedK1 = f(t_n, y_n);
-	parallelMultLV(sharedPrevState, sharedK1);
-
-#ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "sharedK1", sharedK1, basisSize));
-#endif
-
-	//sharedK2 = f(t_n + h/2, y_n + h/2 * sharedK1);
-	//1: sharedCurState = y_n + h/2 * sharedK1
-	parallelCalcV1PlusAlphaV2(sharedPrevState, tHalfStep, sharedK1,
-			sharedCurState);
-	//2: sharedK2=L sharedCurState
-	parallelMultLV(sharedCurState, sharedK2);
-
-#ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "sharedK2", sharedK2, basisSize));
-#endif
-
-	//sharedK3 = f(t_n + h/2, y_n + h/2 * sharedK2)
-	//1: sharedCurState = y_n + h/2 * sharedK2
-	parallelCalcV1PlusAlphaV2(sharedPrevState, tHalfStep, sharedK2,
-			sharedCurState);
-	//2: sharedK3=L sharedCurState
-	parallelMultLV(sharedCurState, sharedK3);
-
-#ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "sharedK3", sharedK3, basisSize));
-#endif
-
-	//sharedK4 = f(t_n + h, y_n + h * sharedK3);
-	//1: sharedCurState = y_n + h * sharedK3
-	parallelCalcV1PlusAlphaV2(sharedPrevState, tStep, sharedK3, sharedCurState);
-	//2: sharedK4=L sharedCurState
-	parallelMultLV(sharedCurState, sharedK4);
-
-#ifdef DEBUG_CONTINUOUS
-	LOG_IF_APPROPRIATE(print(consoleStream, "sharedK4", sharedK4, basisSize));
-#endif
-
-	//y_(n+1) = y_n + (h/6)(sharedK1 + 2k2 + 2k3 + sharedK4)
-	parallelCalcCurrentY();
-}
-
-__device__ inline void Solver::parallelCalcCurrentY() {
-	//waiting for the main thread
-	__syncthreads();
-
-	//one block per cycle
-	int blocksPerVector = (basisSize - 1) / blockDim.x + 1;
-	int index;
-
-#pragma unroll
-	for (int i = 0; i < blocksPerVector; ++i) {
-		index = threadIdx.x + i * blockDim.x;
-		if (index < basisSize) {
-			sharedCurState[index].x =
-					sharedPrevState[index].x
-							+ tSixthStep
-									* (sharedK1[index].x + 2 * sharedK2[index].x
-											+ 2 * sharedK3[index].x
-											+ sharedK4[index].x);
-			sharedCurState[index].y =
-					sharedPrevState[index].y
-							+ tSixthStep
-									* (sharedK1[index].y + 2 * sharedK2[index].y
-											+ 2 * sharedK3[index].y
-											+ sharedK4[index].y);
-		}
-	}
-
-	//ensure result is ready
-	__syncthreads();
 }
 
 __device__ inline void Solver::parallelMakeJump() {
@@ -347,24 +265,6 @@ __device__ inline void Solver::parallelMakeJump() {
 #endif
 }
 
-__device__ inline void Solver::parallelMultLV(
-		const CUDA_COMPLEX_TYPE * const vector,
-		CUDA_COMPLEX_TYPE *result) {
-#ifdef L_SPARSE
-	//write down the sparse branch
-	complex_mkl_cspblas_csrgemv("n", &basisSize, lCSR3->values, lCSR3->rowIndex,
-			lCSR3->columns, vector, result);
-#else
-	//gather all threads
-	__syncthreads();
-
-	parallelMultMatrixVector(l, basisSize, basisSize, vector, result);
-
-	//ensure that the result is ready
-	__syncthreads();
-#endif
-}
-
 __device__ inline void Solver::parallelMultMatrixVector(
 		const CUDA_COMPLEX_TYPE * const matrix, const int rows,
 		const int columns, const CUDA_COMPLEX_TYPE * const vector,
@@ -373,7 +273,7 @@ __device__ inline void Solver::parallelMultMatrixVector(
 	__syncthreads();
 
 	//one block per cycle
-	uint blocksPerVector = (columns - 1) / blockDim.x + 1;
+	const uint blocksPerVector = (columns - 1) / blockDim.x + 1;
 	uint index;
 	uint rowStartIndex;
 
@@ -410,7 +310,7 @@ __device__ inline void Solver::parallelMultCSR3MatrixVector(
 	__syncthreads();
 
 	//one block per cycle
-	int blocksPerVector = (basisSize - 1) / blockDim.x + 1;
+	const uint blocksPerVector = (basisSize - 1) / blockDim.x + 1;
 
 #pragma unroll
 	for (int i = 0; i < blocksPerVector; ++i) {
@@ -541,7 +441,7 @@ CUDA_COMPLEX_TYPE *sharedStateVector) {
 }
 
 #ifdef TEST_MODE
-__device__ FLOAT_TYPE _randomNumbers[1000] = { 0.0 };	// no jumps
+__device__ FLOAT_TYPE _randomNumbers[1000] = {0.0};	// no jumps
 
 __device__ uint _randomNumberCounter = 0;
 #endif

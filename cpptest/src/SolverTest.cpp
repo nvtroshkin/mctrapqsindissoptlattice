@@ -136,7 +136,8 @@ TEST (Solver, parallelNormalizeVector) {
 	uint * nThreadsArray = _createNThreadsArray(basisSize);
 
 	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
-		testSolverParallelNormalize(solverDevPtr, nThreadsArray[i], vectorDevPtr);
+		testSolverParallelNormalize(solverDevPtr, nThreadsArray[i],
+				vectorDevPtr);
 		solverContext.transferState2Host(vectorDevPtr, vector);
 		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
 				vector, expectedResultState, RIGHT_DIGITS);
@@ -273,15 +274,17 @@ TEST (Solver, parallelMultMatrixVector) {
 
 	uint * nThreadsArray = _createNThreadsArray(basisSize);
 
+	CUDA_COMPLEX_TYPE * lDevPtr = solverContext.transferArray2Device(
+			model.getL(), basisSize * basisSize);
 	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
 		testSolverParallelMultMatrixVector(solverDevPtr, nThreadsArray[i],
-				solverContext.getDevPtrL(), basisSize, basisSize, vectorDevPtr,
-				resultStateDevPtr);
+				lDevPtr, basisSize, basisSize, vectorDevPtr, resultStateDevPtr);
 		solverContext.transferState2Host(resultStateDevPtr, resultState);
 		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
 				resultState, expectedResultState, RIGHT_DIGITS);
 	}
 
+	cudaFree(lDevPtr);
 	delete[] nThreadsArray;
 	checkCudaErrors(cudaFree(vectorDevPtr));
 	checkCudaErrors(cudaFree(resultStateDevPtr));

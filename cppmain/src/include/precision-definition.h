@@ -33,6 +33,8 @@
 #define complex_cblas_axpy(...) cblas_caxpy (__VA_ARGS__)
 #define complex_mkl_dnscsr(...) mkl_cdnscsr (__VA_ARGS__)
 #define complex_cblas_nrm2(...) cblas_scnrm2 (__VA_ARGS__)
+#define complex_cblas_gemm(...) cblas_cgemm (__VA_ARGS__)
+#define complex_cblas_scal(...) cblas_csscal (__VA_ARGS__)
 
 #define ippsSum_f(...) ippsSum_32f (__VA_ARGS__, ippAlgHintAccurate)
 #define cblas_dot(...) cblas_dsdot (__VA_ARGS__)
@@ -62,6 +64,8 @@
 #define complex_cblas_axpy(...) cblas_zaxpy (__VA_ARGS__)
 #define complex_mkl_dnscsr(...) mkl_zdnscsr (__VA_ARGS__)
 #define complex_cblas_nrm2(...) cblas_dznrm2 (__VA_ARGS__)
+#define complex_cblas_gemm(...) cblas_zgemm (__VA_ARGS__)
+#define complex_cblas_scal(...) cblas_zdscal (__VA_ARGS__)
 
 #define ippsSum_f(...) ippsSum_64f (__VA_ARGS__)
 #define cblas_dot(...) cblas_ddot (__VA_ARGS__)

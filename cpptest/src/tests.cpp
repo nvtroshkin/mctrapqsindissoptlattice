@@ -6,6 +6,7 @@
 
 //Tests list
 #include "ModelTest.cpp"
+#include "SolverContextTest.cpp"
 #include "SolverTest.cpp"
 #include "MonteCarloSimulatorTest.cpp"
 

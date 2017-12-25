@@ -6,13 +6,16 @@
  */
 #include <vector>
 #include <stdexcept>
+#include <memory>
 
 #include "cuda_runtime.h"
 #include "helper_cuda.h"
 
 #include "Solver.h"
-
 #include "SolverContext.h"
+
+#include "iostream"
+#include "utilities.h"
 
 inline void _initDevCSR3Matrix(CSR3Matrix * csr3Matrix,
 CUDA_COMPLEX_TYPE ** valuesDevPtr, int ** columnsDevPtr,
@@ -81,10 +84,10 @@ SolverContext::SolverContext(uint maxSolvers, FLOAT_TYPE timeStep,
 
 	//Global state
 	int lSize = basisSize * basisSize;
-	checkCudaErrors(
-			cudaMalloc((void**) &lDevPtr, lSize * sizeof(CUDA_COMPLEX_TYPE)));
-	checkCudaErrors(
-			cudaMemcpy(lDevPtr, model.getL(), lSize * sizeof(CUDA_COMPLEX_TYPE), cudaMemcpyHostToDevice));
+
+	CUDA_COMPLEX_TYPE * rungeKuttaOperator = createRungeKuttaOperatorMatrix(model.getL());
+	rungeKuttaOperatorDevPtr = transferArray2Device(rungeKuttaOperator, lSize);
+	delete[] rungeKuttaOperator;
 
 	_initDevCSR3Matrix(model.getA1InCSR3(), &a1CSR3ValuesDevPtr,
 			&a1CSR3ColumnsDevPtr, &a1CSR3RowIndexDevPtr);
@@ -95,7 +98,7 @@ SolverContext::SolverContext(uint maxSolvers, FLOAT_TYPE timeStep,
 }
 
 SolverContext::~SolverContext() {
-	cudaFree(lDevPtr);
+	cudaFree(rungeKuttaOperatorDevPtr);
 
 	cudaFree(a1CSR3ValuesDevPtr);
 	cudaFree(a1CSR3ColumnsDevPtr);
@@ -143,7 +146,8 @@ SolverContext::~SolverContext() {
 	delete curStateDevPtrs;
 }
 
-Solver * SolverContext::createSolverDev(const CUDA_COMPLEX_TYPE * const initialState) {
+Solver * SolverContext::createSolverDev(
+		const CUDA_COMPLEX_TYPE * const initialState) {
 	if (svNormThresholdDevPtrs->size() > maxSolvers) {
 		throw std::out_of_range(
 				"Max solver number achieved - no more solvers may be created");
@@ -200,7 +204,7 @@ Solver * SolverContext::createSolverDev(const CUDA_COMPLEX_TYPE * const initialS
 	prevStateDevPtrs->push_back(prevStateDevPtr);
 	curStateDevPtrs->push_back(curStateDevPtr);
 
-	Solver * solver = new Solver(basisSize, timeStep, nTimeSteps, lDevPtr,
+	Solver * solver = new Solver(basisSize, timeStep, nTimeSteps, rungeKuttaOperatorDevPtr,
 			a1CSR3RowsNum, a1CSR3ValuesDevPtr, a1CSR3ColumnsDevPtr,
 			a1CSR3RowIndexDevPtr, a2CSR3RowsNum, a2CSR3ValuesDevPtr,
 			a2CSR3ColumnsDevPtr, a2CSR3RowIndexDevPtr, a3CSR3RowsNum,
@@ -217,7 +221,8 @@ Solver * SolverContext::createSolverDev(const CUDA_COMPLEX_TYPE * const initialS
 	return solverDevPtr;
 }
 
-Solver ** SolverContext::createSolverDev(const uint count, const CUDA_COMPLEX_TYPE * const initialState) {
+Solver ** SolverContext::createSolverDev(const uint count,
+		const CUDA_COMPLEX_TYPE * const initialState) {
 	Solver * solvers[count];
 	for (int i = 0; i < count; ++i) {
 		solvers[i] = createSolverDev(initialState);
@@ -232,7 +237,8 @@ void SolverContext::initAllSolvers(CUDA_COMPLEX_TYPE * initialState) {
 	}
 }
 
-void SolverContext::appendAllResults(std::vector<CUDA_COMPLEX_TYPE *> &results) {
+void SolverContext::appendAllResults(
+		std::vector<CUDA_COMPLEX_TYPE *> &results) {
 	for (int i = 0; i < curStateDevPtrs->size(); ++i) {
 		results.push_back(transferState2Host(curStateDevPtrs->at(i)));
 	}
@@ -263,3 +269,59 @@ inline void SolverContext::freePtrs(std::vector<T *> * &v) {
 	}
 }
 
+inline void SolverContext::addRealConstant2Matrix(const FLOAT_TYPE realConstant,
+CUDA_COMPLEX_TYPE * const matrix) {
+	for (int i = 0; i < basisSize; ++i) {
+		//only diagonal elements
+		matrix[i * (basisSize + 1)].x += realConstant;
+	}
+}
+
+inline CUDA_COMPLEX_TYPE * SolverContext::createRungeKuttaOperatorMatrix(
+		const CUDA_COMPLEX_TYPE * const l) {
+
+	//1 + L (h + L (0.5 h^2 + L (1/6 h^3 + 1/24 h^4 L)))
+	const uint matrixSize = basisSize * basisSize;
+
+	//RG=L
+	std::unique_ptr<CUDA_COMPLEX_TYPE[]> mFirst(
+			new CUDA_COMPLEX_TYPE[matrixSize]);
+	std::copy(l, l + matrixSize, mFirst.get());
+
+	//RG=1/24 h^4 RG
+	complex_cblas_scal(matrixSize, ONE_TWENTY_FORTH * pow(timeStep, 4), mFirst.get(),
+			1);
+
+	//RG=1/6 h^3 + RG
+	addRealConstant2Matrix(ONE_SIXTH * pow(timeStep, 3), mFirst.get());
+
+	//RG=L RG
+	const CUDA_COMPLEX_TYPE cOne = { 1.0, 0.0 };
+	const FLOAT_TYPE b = 0.0;
+
+	CUDA_COMPLEX_TYPE * mSecond = new CUDA_COMPLEX_TYPE[matrixSize]();
+	complex_cblas_gemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, basisSize, basisSize,
+			basisSize, &cOne, l, basisSize, mFirst.get(), basisSize, &b,
+			mSecond, basisSize);
+
+	//RG=0.5 h^2+RG
+	addRealConstant2Matrix(0.5 * pow(timeStep, 2), mSecond);
+
+	//RG=L RG
+	complex_cblas_gemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, basisSize, basisSize,
+			basisSize, &cOne, l, basisSize, mSecond, basisSize, &b,
+			mFirst.get(), basisSize);
+
+	//RG=h + RG
+	addRealConstant2Matrix(timeStep, mFirst.get());
+
+	//RG=L RG
+	complex_cblas_gemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, basisSize, basisSize,
+			basisSize, &cOne, l, basisSize, mFirst.get(), basisSize, &b,
+			mSecond, basisSize);
+
+	//RG=1 + RG
+	addRealConstant2Matrix(1.0, mSecond);
+
+	return mSecond;
+}

@@ -19,13 +19,16 @@
 
 class SolverContext {
 
+	static constexpr FLOAT_TYPE ONE_SIXTH = 1.0 / 6;
+	static constexpr FLOAT_TYPE ONE_TWENTY_FORTH = 1.0 / 24;
+
 	//---------------------global-------------------------------
 	const uint maxSolvers;
 	const uint basisSize;
 	const FLOAT_TYPE timeStep;
 	const uint nTimeSteps;
 
-	CUDA_COMPLEX_TYPE * lDevPtr;
+	CUDA_COMPLEX_TYPE *rungeKuttaOperatorDevPtr;
 
 	const int a1CSR3RowsNum;
 
@@ -69,6 +72,12 @@ class SolverContext {
 	template<typename T>
 	void freePtrs(std::vector<T *> * &v);
 
+	void addRealConstant2Matrix(const FLOAT_TYPE realConstant,
+			CUDA_COMPLEX_TYPE * const matrix);
+
+	CUDA_COMPLEX_TYPE * createRungeKuttaOperatorMatrix(
+			const CUDA_COMPLEX_TYPE * const l);
+
 public:
 	SolverContext(uint maxSolvers, FLOAT_TYPE timeStep, uint nTimeSteps,
 			Model &model);
@@ -111,7 +120,7 @@ public:
 
 	//---------------------------Getters-------------------------------
 
-	const CUDA_COMPLEX_TYPE * const getDevPtrL();
+	const CUDA_COMPLEX_TYPE * getRungeKuttaOperatorDevPtr();
 
 	int getA1CSR3RowsNum();
 
@@ -201,8 +210,8 @@ template<typename T> inline T* SolverContext::transferObject2Device(
 
 //-----------------------------Getters---------------------------------
 
-inline const CUDA_COMPLEX_TYPE * const SolverContext::getDevPtrL() {
-	return lDevPtr;
+inline const CUDA_COMPLEX_TYPE * SolverContext::getRungeKuttaOperatorDevPtr() {
+	return rungeKuttaOperatorDevPtr;
 }
 
 inline int SolverContext::getA1CSR3RowsNum() {

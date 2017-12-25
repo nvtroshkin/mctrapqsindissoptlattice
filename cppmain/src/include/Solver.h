@@ -29,7 +29,7 @@ class Solver {
 #ifdef L_SPARSE
 	__restrict__ const CSR3Matrix * const lCSR3;
 #else
-	__restrict__ const CUDA_COMPLEX_TYPE * const l;
+	__restrict__ const CUDA_COMPLEX_TYPE * const rungeKuttaOperator;
 #endif
 
 	const int a1CSR3RowsNum;
@@ -99,7 +99,7 @@ class Solver {
 public:
 	__host__ __device__
 	Solver(int basisSize, FLOAT_TYPE timeStep, int nTimeSteps,
-			const CUDA_COMPLEX_TYPE * l, int a1CSR3RowsNum,
+			const CUDA_COMPLEX_TYPE * rungeKuttaOperator, int a1CSR3RowsNum,
 			const CUDA_COMPLEX_TYPE * a1CSR3Values, const int * a1CSR3Columns,
 			const int * a1CSR3RowIndex, int a2CSR3RowsNum,
 			const CUDA_COMPLEX_TYPE * a2CSR3Values, const int * a2CSR3Columns,

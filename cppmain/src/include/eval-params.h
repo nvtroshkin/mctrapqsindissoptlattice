@@ -12,7 +12,7 @@
  * If defined, progress of calculations is printed every N samples
  */
 #define PRINT_PROGRESS
-static const int SAMPLES_BETWEEN_PROGRESS = 10;
+static const int MIN_SAMPLES_BETWEEN_PROGRESS = 50;
 
 /**
  * Consider L as a sparse matrix
@@ -50,8 +50,8 @@ static const uint N_BLOCKS = 32;
 //Increasing the END_TIME value is necessary to caught the stationary evaluation
 //phase
 static const FLOAT_TYPE TIME_STEP_SIZE = 0.000001;
-static const int TIME_STEPS_NUMBER = 10;		//the total number of steps
-static const int MONTE_CARLO_SAMPLES_NUMBER = 32;
+static const int TIME_STEPS_NUMBER = 1000;		//the total number of steps
+static const int MONTE_CARLO_SAMPLES_NUMBER = 128;
 
 static const FLOAT_TYPE EVAL_TIME = TIME_STEP_SIZE * TIME_STEPS_NUMBER;
 
