@@ -49,10 +49,16 @@ SimulationResult *MonteCarloSimulator::simulate(FLOAT_TYPE timeStep,
 
 	uint nIterations = (samplesNumber - 1) / nBlocks + 1;
 
-	uint actualNBlocks;
+#ifdef PRINT_PROGRESS
+	uint samplesProcessed = 0;
+	uint lastProgressMark = 0;
+
+	std::cout << "Progress: 0%" << std::endl;
+#endif
+
 	for (int n = 0; n < nIterations; ++n) {
 		//to not calculate unnecessary samples at the end
-		actualNBlocks = std::min(nBlocks, samplesNumber - n * nBlocks);
+		uint actualNBlocks = std::min(nBlocks, samplesNumber - n * nBlocks);
 
 		//update initial state
 		solverContext.initAllSolvers(groundState);
@@ -60,6 +66,14 @@ SimulationResult *MonteCarloSimulator::simulate(FLOAT_TYPE timeStep,
 		::simulate(actualNBlocks, threadsPerBlock, solverDevPtrs);
 
 		solverContext.appendAllResults(*results);
+
+#ifdef PRINT_PROGRESS
+		samplesProcessed = n*nBlocks + actualNBlocks;
+		if(samplesProcessed - lastProgressMark >= MIN_SAMPLES_BETWEEN_PROGRESS){
+			std::cout << "Progress: " << 100.0 * samplesProcessed/samplesNumber << "%" << std::endl;
+			lastProgressMark = samplesProcessed;
+		}
+#endif
 	}
 
 	cudaFree(solverDevPtrs);
