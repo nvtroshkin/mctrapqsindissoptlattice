@@ -16,6 +16,7 @@
 
 #include "iostream"
 #include "utilities.h"
+#include "Timer.h"
 
 inline void _initDevCSR3Matrix(CSR3Matrix * csr3Matrix,
 CUDA_COMPLEX_TYPE ** valuesDevPtr, int ** columnsDevPtr,
@@ -85,9 +86,14 @@ SolverContext::SolverContext(uint maxSolvers, FLOAT_TYPE timeStep,
 	//Global state
 	int lSize = basisSize * basisSize;
 
+	Timer timer;
+	timer.startCount("Runge-Kutta operator");
+
 	CUDA_COMPLEX_TYPE * rungeKuttaOperator = createRungeKuttaOperatorMatrix(model.getL());
 	rungeKuttaOperatorDevPtr = transferArray2Device(rungeKuttaOperator, lSize);
 	delete[] rungeKuttaOperator;
+
+	timer.printElapsedTime("Runge-Kutta operator");
 
 	_initDevCSR3Matrix(model.getA1InCSR3(), &a1CSR3ValuesDevPtr,
 			&a1CSR3ColumnsDevPtr, &a1CSR3RowIndexDevPtr);

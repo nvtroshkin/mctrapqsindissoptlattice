@@ -22,6 +22,7 @@
 #include "Solver.h"
 #include "utilities.h"
 #include "SolverContext.h"
+#include "Timer.h"
 
 extern void simulate(const uint nBlocks, const uint nThreadsPerBlock,
 		Solver * const * const solverDevPtrs);
@@ -56,6 +57,9 @@ SimulationResult *MonteCarloSimulator::simulate(FLOAT_TYPE timeStep,
 	std::cout << "Progress: 0%" << std::endl;
 #endif
 
+	Timer timer;
+	timer.startCount("Simulation");
+
 	for (int n = 0; n < nIterations; ++n) {
 		//to not calculate unnecessary samples at the end
 		uint actualNBlocks = std::min(nBlocks, samplesNumber - n * nBlocks);
@@ -75,6 +79,8 @@ SimulationResult *MonteCarloSimulator::simulate(FLOAT_TYPE timeStep,
 		}
 #endif
 	}
+
+	timer.printElapsedTime("Simulation");
 
 	cudaFree(solverDevPtrs);
 	//freeing resources
