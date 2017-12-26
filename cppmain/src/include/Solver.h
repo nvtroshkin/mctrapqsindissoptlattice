@@ -17,10 +17,6 @@ class Solver {
 	//------------------constants--------------------------
 	const FLOAT_TYPE tStep;
 
-	const FLOAT_TYPE tHalfStep;
-
-	const FLOAT_TYPE tSixthStep;
-
 	const int nTimeSteps;
 
 	//------------------model------------------------------

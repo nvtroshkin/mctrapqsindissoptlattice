@@ -31,8 +31,7 @@ __host__ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep,
 		CUDA_COMPLEX_TYPE *sharedK3, CUDA_COMPLEX_TYPE *sharedK4,
 		CUDA_COMPLEX_TYPE *sharedPrevState,
 		CUDA_COMPLEX_TYPE *sharedCurState) :
-		tStep(timeStep), tHalfStep(0.5 * timeStep), tSixthStep(timeStep / 6.0), nTimeSteps(
-				nTimeSteps), basisSize(basisSize),
+		tStep(timeStep), nTimeSteps(nTimeSteps), basisSize(basisSize),
 #ifdef L_SPARSE
 				lCSR3(
 						model.getLInCSR3())
@@ -93,7 +92,8 @@ __device__ void Solver::solve() {
 		//write the f function
 
 		//y_(n+1) = 1 + L (h + L (0.5 h^2 + L (1/6 h^3 + 1/24 h^4 L))) yn
-		parallelMultMatrixVector(rungeKuttaOperator, basisSize, basisSize, sharedPrevState, sharedCurState);
+		parallelMultMatrixVector(rungeKuttaOperator, basisSize, basisSize,
+				sharedPrevState, sharedCurState);
 
 		//...falls below the threshold, which is a random number
 		//uniformly distributed between [0,1] - svNormThreshold
