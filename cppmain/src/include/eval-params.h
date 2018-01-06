@@ -25,23 +25,57 @@ static const int MIN_SAMPLES_BETWEEN_PROGRESS = 50;
  */
 //#define CHECK_SPARSITY
 
-static const uint CUDA_N_WARPS_PER_BLOCK = 1;
-
-static const uint CUDA_WARP_SIZE = 32;
 /**
+ * Change to adjust the number of threads per block. All the threads are divided on warps
+ * that execute independently. More threads - less resources per thread available
+ *
  * Please, keep in mind that it is very GPU-specific. My GPU's multiprocessors can
  * hold only 1 warp (32 threads) at once, others can more (one thread - one core).
  * Also one warp may be not sufficient to get 100% load.
  *
- * It is better to have it is a factor of the basis size, because matrices and vectors
- * are processed by tiles (32 threads per warp and 8 cores per SM - should be multiple
+ * It is better to have it is a factor of the basis size (or is could be slowed down by factor of 10),
+ * because matrices and vectors  * are processed by tiles (32 threads per warp and 8 cores per SM - should be multiple
  * of it too)
+ */
+static const uint CUDA_N_WARPS_PER_BLOCK = 1;
+
+/**
+ * Don't change it. The standard warp size on GPUs
+ */
+static const uint CUDA_WARP_SIZE = 32;
+
+/**
+ * Don't change it. The total number of threads. To adjust use nWarpsPerBlock constant
  */
 static constexpr uint CUDA_THREADS_PER_BLOCK = CUDA_WARP_SIZE * CUDA_N_WARPS_PER_BLOCK;
 
-
+/**
+ * Defines the ILP (instruction level parallelism) level of the density matrix - vector multiplication code.
+ * More ILP - more registers needed, more cycles are unrolled, more code with all consequences (Instruction cash thrashing,
+ * though never noticed). PTXAS optimizations makes large level of ILP worthless because it divides global loads
+ * with arithmetic. So 2 probably is a reasonable maximum.
+ *
+ * If ILP_COLUMN = 1, then each thread gets one column, multiplies it on a vector element, stores it in the shared memory.
+ * If there are elements left (basis is larger then threads number), it gets another column and etc.
+ *
+ * If ILP_COLUMN = 2, it loads 2 columns before arithmetics (if there are sufficient amount of columns)
+ *
+ * It is better to choose the value in such a way that basisSize divides on threadsNumber*ILP_COLUMN or performance could
+ * degrade
+ */
 static const uint CUDA_MATRIX_VECTOR_ILP_COLUMN = 1;
+
+/**
+ * Same as ILP_COLUMN but by rows. Also it saves global loads of vector values (several row values are multiplied on on vector element)
+ *
+ * The basisSize should divide on ILP_ROW or performance could degrade
+ */
 static const uint CUDA_MATRIX_VECTOR_ILP_ROW = 1;
+
+/**
+ * Same, but for sparse matrices (jumps). Note that sparse matrix multiplications are not very expensive.
+ * They have approx. n=basisSize non-zero elements less in a row then dense matrices.
+ */
 static const uint CUDA_SPARSE_MATRIX_VECTOR_ILP_COLUMN = 3;
 
 /**
