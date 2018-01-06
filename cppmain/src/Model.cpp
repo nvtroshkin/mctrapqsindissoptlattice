@@ -18,8 +18,12 @@ Model::Model(uint atom1SSize, uint atom2SSize, uint atom3SSize,
 				field2SSize), subs2Size(atom2SSize * field2SSize), atom3SSize(
 				atom3SSize), field3SSize(field3SSize), subs3Size(
 				atom3SSize * field3SSize), basisSize(
-				subs1Size * subs2Size * subs3Size), kappa(kappa), deltaOmega(
-				deltaOmega), g(g), scE(scE), J(J) {
+				subs1Size * subs2Size * subs3Size), rAtom1SSizeSubs2SizeSubs3Size(
+				1.0 / (atom1SSize * subs2Size * subs3Size)), rSubs2SizeSubs3Size(
+				1.0 / (subs2Size * subs3Size)), rAtom2SSizeSubs3Size(
+				1.0 / (atom2SSize * subs3Size)), rSubs3Size(1.0 / subs3Size), rAtom3SSize(
+				1.0 / atom3SSize), kappa(kappa), deltaOmega(deltaOmega), g(g), scE(
+				scE), J(J) {
 	uint maxFieldSSize = std::max(std::max(field1SSize, field2SSize),
 			field3SSize);
 
@@ -212,9 +216,9 @@ inline CSR3Matrix *Model::createCSR3Matrix(CalcElemFuncP f,
 
 	int basisSizeInt = basisSize;
 
-	complex_mkl_dnscsr(job, &basisSizeInt, &basisSizeInt,
-			denseMatrix, &basisSizeInt, csr3Matrix->values,
-			csr3Matrix->columns, csr3Matrix->rowIndex, &info);
+	complex_mkl_dnscsr(job, &basisSizeInt, &basisSizeInt, denseMatrix,
+			&basisSizeInt, csr3Matrix->values, csr3Matrix->columns,
+			csr3Matrix->rowIndex, &info);
 
 	delete[] denseMatrix;
 
@@ -243,7 +247,7 @@ inline CUDA_COMPLEX_TYPE *Model::createMatrix(CalcElemFuncP f,
 
 #ifdef CHECK_SPARSITY
 	std::cout << "DensityOf(" << matrixName << ") = "
-			<< 1.0 * nonZeroCounter / totalElementsCount << std::endl;
+	<< 1.0 * nonZeroCounter / totalElementsCount << std::endl;
 #endif
 
 	return denseMatrix;

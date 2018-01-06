@@ -268,8 +268,8 @@ __device__ inline void Solver::parallelMultMatrixVector(
 	__syncthreads();
 
 	multMatrixVector<BASIS_SIZE, CUDA_THREADS_PER_BLOCK,
-			CUDA_MATRIX_VECTOR_ILP_COLUMN, CUDA_MATRIX_VECTOR_ILP_ROW, false>(matrix,
-			vector, result);
+			CUDA_MATRIX_VECTOR_ILP_COLUMN, CUDA_MATRIX_VECTOR_ILP_ROW, false>(
+			matrix, vector, result);
 
 	__syncthreads();
 }
@@ -278,7 +278,8 @@ __device__ inline void Solver::parallelMultCSR3MatrixVector(
 		const CUDA_COMPLEX_TYPE * const __restrict__ csr3MatrixValues,
 		const int * const __restrict__ csr3MatrixColumns,
 		const int * const __restrict__ csr3MatrixRowIndex,
-		const CUDA_COMPLEX_TYPE * const __restrict__ vector, CUDA_COMPLEX_TYPE * __restrict__ result) {
+		const CUDA_COMPLEX_TYPE * const __restrict__ vector,
+		CUDA_COMPLEX_TYPE * __restrict__ result) {
 
 	__syncthreads();
 
@@ -294,12 +295,6 @@ __device__ inline FLOAT_TYPE Solver::parallelCalcNormSquare(
 	__syncthreads();
 
 	CUDA_COMPLEX_TYPE temp;
-//#pragma unroll 2
-//	for (int i = 0; i < basisSize; ++i) {
-//		//vary bad
-//		temp += v[i].x * v[i].x + v[i].y * v[i].y;
-//	}
-
 	multVectorVector<BASIS_SIZE, CUDA_THREADS_PER_BLOCK,
 			CUDA_MATRIX_VECTOR_ILP_COLUMN, true>(v, v, &temp);
 
@@ -315,13 +310,10 @@ __device__ inline void Solver::parallelCalcAlphaVector(const FLOAT_TYPE alpha,
 	__syncthreads();
 
 	//one block per cycle
-	int blocksPerVector = (basisSize - 1) / blockDim.x + 1;
-	int index;
-
 #pragma unroll 2
-	for (int i = 0; i < blocksPerVector; ++i) {
-		index = threadIdx.x + i * blockDim.x;
-		if (index < basisSize) {
+	for (int i = 0, index = threadIdx.x; i < BLOCKS_PER_VECTOR; ++i, index +=
+			CUDA_THREADS_PER_BLOCK) {
+		if (index < BASIS_SIZE) {
 			result[index].x = alpha * vector[index].x;
 			result[index].y = alpha * vector[index].y;
 		}
@@ -338,14 +330,10 @@ __device__ inline void Solver::parallelCalcV1PlusAlphaV2(
 	//waiting for the main thread
 	__syncthreads();
 
-	//one block per cycle
-	int blocksPerVector = (basisSize - 1) / blockDim.x + 1;
-	int index;
-
 #pragma unroll 2
-	for (int i = 0; i < blocksPerVector; ++i) {
-		index = threadIdx.x + i * blockDim.x;
-		if (index < basisSize) {
+	for (int i = 0, index = threadIdx.x; i < BLOCKS_PER_VECTOR; ++i, index +=
+			CUDA_THREADS_PER_BLOCK) {
+		if (index < BASIS_SIZE) {
 			result[index].x = v1[index].x + alpha * v2[index].x;
 			result[index].y = v1[index].y + alpha * v2[index].y;
 		}
@@ -361,14 +349,10 @@ __device__ inline void Solver::parallelCopy(
 
 	__syncthreads();
 
-	//one block per cycle
-	int blocksPerVector = (basisSize - 1) / blockDim.x + 1;
-	int index;
-
 #pragma unroll 2
-	for (int i = 0; i < blocksPerVector; ++i) {
-		index = threadIdx.x + i * blockDim.x;
-		if (index < basisSize) {
+	for (int i = 0, index = threadIdx.x; i < BLOCKS_PER_VECTOR; ++i, index +=
+			CUDA_THREADS_PER_BLOCK) {
+		if (index < BASIS_SIZE) {
 			dest[index] = source[index];
 		}
 	}
@@ -395,7 +379,7 @@ CUDA_COMPLEX_TYPE * __restrict__ sharedStateVector) {
 }
 
 #ifdef TEST_MODE
-__device__ FLOAT_TYPE _randomNumbers[1000] = {0.0};	// no jumps
+__device__ FLOAT_TYPE _randomNumbers[1000] = { 0.0 };	// no jumps
 
 __device__ uint _randomNumberCounter = 0;
 #endif
@@ -407,53 +391,3 @@ __device__ inline FLOAT_TYPE Solver::getNextRandomFloat() {
 	return curand_uniform(&randomGeneratorState);
 #endif
 }
-
-//template<typename T, const uint blk>
-//__device__ void multMatrixVector(const T * __restrict__ matrix, const T * __restrict__ vector,
-//		T * __restrict__ result, const uint nRows, const uint nx) {
-//
-//	const uint tid = threadIdx.x + blockIdx.x * blockDim.x;
-//	const uint hor_blocks = (nx + blk - 1) / blk;
-//
-//	__shared__ T x_shared[blk];
-//
-//	register T y_val = 0.0;
-//
-//#pragma unroll
-//	for (uint m = 0; m < hor_blocks; ++m) {
-//
-//		if ((m * blk + threadIdx.x) < nx) {
-//			x_shared[threadIdx.x] = vector[threadIdx.x + m * blk];
-//
-//		} else {
-//
-//			x_shared[threadIdx.x] = 0.0f;
-//		}
-//
-//		__syncthreads();
-//
-//#pragma unroll
-//		for (uint e = 0; e < blk; ++e) {
-//			y_val += matrix[tid + (e + blk * m) * nRows] * x_shared[e];
-//		}
-//
-//		__syncthreads();
-//	}
-//
-//	if (tid < nRows) {
-//		result[tid] = y_val;
-//	}
-//
-//}
-//
-//#pragma once
-//template<typename T, const uint_t blk>
-//__host__ void matvec_engine(const T * RESTRICT dA, const T * RESTRICT dx,
-//		T * RESTRICT dy, const uint_t nRows, const uint_t nx) {
-//
-//	dim3 dim_grid((nRows + blk - 1) / blk);
-//	dim3 dim_block(blk);
-//
-//	matvec_kernel<T, blk> <<<dim_grid, dim_block>>>(dA, dx, dy, nRows, nx);
-//
-//}

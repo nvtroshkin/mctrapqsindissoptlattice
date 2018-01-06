@@ -11,8 +11,12 @@
 #include <precision-definition.h>
 
 #include <curand_kernel.h>
+#include "system-constants.h"
+#include "eval-params.h"
 
 class Solver {
+
+	static constexpr uint BLOCKS_PER_VECTOR = (BASIS_SIZE - 1) / CUDA_THREADS_PER_BLOCK + 1;
 
 	//------------------constants--------------------------
 	const FLOAT_TYPE tStep;
@@ -132,6 +136,7 @@ public:
 	void parallelCopy(const CUDA_COMPLEX_TYPE * const __restrict__ source,
 	CUDA_COMPLEX_TYPE * const __restrict__ dest);
 
+	static
 	__device__
 	void parallelCalcAlphaVector(const FLOAT_TYPE alpha,
 			const CUDA_COMPLEX_TYPE * const __restrict__ vector,

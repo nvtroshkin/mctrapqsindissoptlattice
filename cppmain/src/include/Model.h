@@ -31,6 +31,13 @@ class Model {
 
 	const uint basisSize;
 
+	//cache
+	const FLOAT_TYPE rAtom1SSizeSubs2SizeSubs3Size;
+	const FLOAT_TYPE rSubs2SizeSubs3Size;
+	const FLOAT_TYPE rAtom2SSizeSubs3Size;
+	const FLOAT_TYPE rSubs3Size;
+	const FLOAT_TYPE rAtom3SSize;
+
 	const FLOAT_TYPE kappa;
 	const FLOAT_TYPE deltaOmega;
 	const FLOAT_TYPE g;
@@ -256,23 +263,23 @@ inline CUDA_COMPLEX_TYPE *Model::getL() const {
 #endif
 
 inline uint Model::n1(uint stateIndex) const {
-	return stateIndex / (atom1SSize * subs2Size * subs3Size);
+	return stateIndex * rAtom1SSizeSubs2SizeSubs3Size;
 }
 
 inline uint Model::s1(uint stateIndex) const {
-	return (stateIndex / (subs2Size * subs3Size)) % atom1SSize;
+	return ((uint)(stateIndex * rSubs2SizeSubs3Size)) % atom1SSize;
 }
 
 inline uint Model::n2(uint stateIndex) const {
-	return (stateIndex / (atom2SSize * subs3Size)) % field2SSize;
+	return ((uint)(stateIndex *rAtom2SSizeSubs3Size)) % field2SSize;
 }
 
 inline uint Model::s2(uint stateIndex) const {
-	return (stateIndex / subs3Size) % atom2SSize;
+	return ((uint)(stateIndex * rSubs3Size)) % atom2SSize;
 }
 
 inline uint Model::n3(uint stateIndex) const {
-	return (stateIndex / atom3SSize) % field3SSize;
+	return ((uint)(stateIndex * rAtom3SSize)) % field3SSize;
 }
 
 inline uint Model::s3(uint stateIndex) const {
