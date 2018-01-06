@@ -36,6 +36,8 @@ static const int MIN_SAMPLES_BETWEEN_PROGRESS = 50;
  */
 static const uint THREADS_PER_BLOCK = 64;
 
+static const uint WARP_SIZE = 32;
+
 /**
  * One block = one trajectory. If it is small - there are many separate kernel
  * invocations with corresponding start up expenses. If there are many - fewer resources

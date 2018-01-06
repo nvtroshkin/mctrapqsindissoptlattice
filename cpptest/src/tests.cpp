@@ -5,10 +5,11 @@
 #include "definitions.h"
 
 //Tests list
-#include "ModelTest.cpp"
-#include "SolverContextTest.cpp"
-#include "SolverTest.cpp"
-#include "MonteCarloSimulatorTest.cpp"
+#include "custommathTest.cpp"
+//#include "ModelTest.cpp"
+//#include "SolverContextTest.cpp"
+//#include "SolverTest.cpp"
+//#include "MonteCarloSimulatorTest.cpp"
 
 int main(int argc, char **argv) {
 	printf("Running main() from gtest_main.cc\n");

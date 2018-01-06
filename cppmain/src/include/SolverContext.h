@@ -104,18 +104,18 @@ public:
 
 	template<typename T> T* transferState2Host(const T * const devPtr);
 
-	template<typename T> T * transferObject2Device(const T * const hostPtr);
+	template<typename T> static T * transferObject2Device(const T * const hostPtr);
 
-	template<typename T> T* transferArray2Host(const T * const devPtr,
+	template<typename T> static T* transferArray2Host(const T * const devPtr,
 			uint size);
 
-	template<typename T> void transferArray2Host(const T * const devPtr,
+	template<typename T> static void transferArray2Host(const T * const devPtr,
 			T * const hostPtr, const uint size);
 
-	template<typename T> void transferArray2Device(T * const devPtr,
+	template<typename T> static void transferArray2Device(T * const devPtr,
 			const T * const hostPtr, const uint size);
 
-	template<typename T> T* transferArray2Device(const T * const hostPtr,
+	template<typename T> static T* transferArray2Device(const T * const hostPtr,
 			const uint size);
 
 	//---------------------------Getters-------------------------------

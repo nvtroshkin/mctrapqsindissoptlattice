@@ -29,16 +29,6 @@ template<typename T> void _printDevArray(SolverContext &solverContext,
 	print(std::cout, title, hostArray, size);
 }
 
-void _checkState(const std::string &caseId, uint basisSize,
-		const CUDA_COMPLEX_TYPE * const resultState,
-		const CUDA_COMPLEX_TYPE * const expectedState, uint rightDigits) {
-	//check the matrix
-	for (int i = 0; i < basisSize; ++i) {
-		ASSERT_THAT(resultState[i],
-				EqArrayComplexElementAt(expectedState, i, rightDigits))<< caseId << std::endl;
-	}
-}
-
 static const uint N_THREADS_ARRAY_SIZE = 3;
 
 uint * _createNThreadsArray(uint basisSize) {

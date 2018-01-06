@@ -8,6 +8,8 @@
 #ifndef SRC_DEFINITIONS_H_
 #define SRC_DEFINITIONS_H_
 
+#include "helper_cuda.h"
+
 #include <cmath>
 #include <iostream>
 #include "gtest/gtest.h"
@@ -119,6 +121,33 @@ inline ::std::ostream& operator<<(::std::ostream& os,
 	return os
 			<< dynamic_cast<std::ostringstream&>(FancyStream() << c.x
 					<< (c.y < 0 ? "" : " + ") << c.y << "i").str();
+}
+
+void _checkState(const std::string &caseId, uint basisSize,
+		const CUDA_COMPLEX_TYPE * const resultState,
+		const CUDA_COMPLEX_TYPE * const expectedState, uint rightDigits) {
+	//check the matrix
+	for (int i = 0; i < basisSize; ++i) {
+		ASSERT_THAT(resultState[i],
+				EqArrayComplexElementAt(expectedState, i, rightDigits))
+				<< caseId << std::endl;
+	}
+}
+
+void _checkDeviceState(const std::string &caseId, const uint basisSize,
+		const CUDA_COMPLEX_TYPE * const actualResultDevPtr,
+		const CUDA_COMPLEX_TYPE * const expectedState, const uint rightDigits) {
+
+	CUDA_COMPLEX_TYPE * actualResult = new CUDA_COMPLEX_TYPE[basisSize];
+
+	checkCudaErrors(
+			cudaMemcpy(actualResult, actualResultDevPtr,
+					basisSize * sizeof(CUDA_COMPLEX_TYPE),
+					cudaMemcpyDeviceToHost));
+
+	_checkState(caseId, basisSize, actualResult, expectedState, rightDigits);
+
+	delete[] actualResult;
 }
 
 //class NoJumpRndNumProvider: public RndNumProvider {

@@ -356,8 +356,6 @@ __device__ void multVectorVector(const CUDA_COMPLEX_TYPE * __restrict__ const v1
 	constexpr uint remainColumns = vSize % multIlpColumnBlockSize;
 	constexpr uint endColumnIndex = vSize - remainColumns;
 
-	constexpr uint matrixSize = vSize * vSize;
-
 	constexpr uint reductionThreads = getReductionThreads(blockSize);
 	constexpr uint extraThreads = blockSize - reductionThreads;
 

@@ -10,10 +10,13 @@
 
 #include "Solver.cpp"
 
+#include "custommath.cpp"
+
 #include "helper_cuda.h"
 
 #ifdef TEST_MODE
 #include "../../cpptest/src/SolverTest0.cpp"
+#include "../../cpptest/src/custommathTest0.cpp"
 #endif
 
 __global__ void simulateKernel(Solver * const * const solverDevPtrs) {
