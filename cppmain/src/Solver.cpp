@@ -297,7 +297,7 @@ __device__ inline void Solver::parallelMultCSR3MatrixVector(
 __device__ inline FLOAT_TYPE Solver::calcNormSquare(
 		const CUDA_COMPLEX_TYPE * const v) {
 	FLOAT_TYPE temp = 0.0;
-#pragma unroll
+#pragma unroll 2
 	for (int i = 0; i < basisSize; ++i) {
 		//vary bad
 		temp += v[i].x * v[i].x + v[i].y * v[i].y;
@@ -319,7 +319,7 @@ __device__ inline void Solver::parallelCalcAlphaVector(const FLOAT_TYPE alpha,
 	int blocksPerVector = (basisSize - 1) / blockDim.x + 1;
 	int index;
 
-#pragma unroll
+#pragma unroll 2
 	for (int i = 0; i < blocksPerVector; ++i) {
 		index = threadIdx.x + i * blockDim.x;
 		if (index < basisSize) {
@@ -343,7 +343,7 @@ __device__ inline void Solver::parallelCalcV1PlusAlphaV2(
 	int blocksPerVector = (basisSize - 1) / blockDim.x + 1;
 	int index;
 
-#pragma unroll
+#pragma unroll 2
 	for (int i = 0; i < blocksPerVector; ++i) {
 		index = threadIdx.x + i * blockDim.x;
 		if (index < basisSize) {
@@ -366,7 +366,7 @@ __device__ inline void Solver::parallelCopy(
 	int blocksPerVector = (basisSize - 1) / blockDim.x + 1;
 	int index;
 
-#pragma unroll
+#pragma unroll 2
 	for (int i = 0; i < blocksPerVector; ++i) {
 		index = threadIdx.x + i * blockDim.x;
 		if (index < basisSize) {
