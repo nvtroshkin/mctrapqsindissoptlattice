@@ -66,8 +66,6 @@ __device__ void Solver::solve() {
 	//Only the first thread does all the job - others are used in fork regions only
 	//but they should go through the code to
 
-	__syncthreads();
-
 	if (threadIdx.x == 0) {
 		curand_init(ULONG_LONG_MAX / gridDim.x * blockIdx.x, 0ull, 0ull,
 				&randomGeneratorState);
@@ -75,8 +73,6 @@ __device__ void Solver::solve() {
 		//of the next jump
 		*sharedNormThresholdPtr = getNextRandomFloat();
 	}
-
-	__syncthreads();
 
 	//Calculate each sample by the time axis
 	for (int i = 0; i < nTimeSteps; ++i) {
@@ -102,19 +98,18 @@ __device__ void Solver::solve() {
 		//if the state vector at t(i+1) has a less square of the norm then the threshold
 		//try a self-written norm?
 
-		__syncthreads();
-
 		if (threadIdx.x == 0) {
 			*sharedFloatPtr = calcNormSquare(sharedCurState);
 		}
 
-		__syncthreads();
 
 #ifdef DEBUG_JUMPS
 		LOG_IF_APPROPRIATE(
 				consoleStream << "Norm: threshold = " << svNormThreshold
 				<< ", current = " << norm2<< endl);
 #endif
+
+		__syncthreads();
 
 		if (*sharedNormThresholdPtr > *sharedFloatPtr) {
 #ifdef DEBUG_JUMPS
@@ -126,14 +121,10 @@ __device__ void Solver::solve() {
 
 			parallelMakeJump();
 
-			__syncthreads();
-
 			if (threadIdx.x == 0) {
 				//update the random time
 				*sharedNormThresholdPtr = getNextRandomFloat();
 			}
-
-			__syncthreads();
 
 #ifdef DEBUG_JUMPS
 			consoleStream << "New norm^2 threshold = " << svNormThreshold
@@ -143,24 +134,21 @@ __device__ void Solver::solve() {
 
 		//update indices for all threads
 		//(they have their own pointers but pointing to the same memory address)
-		//the "restrict" pointers behaviour is maintained manually
+		//the "restrict" pointers behavior is maintained manually
 		//through synchronization
-
-		__syncthreads();
 
 		if (threadIdx.x == 0) {
 			tempPointer = sharedCurState;
 			sharedCurState = sharedPrevState;
 			sharedPrevState = tempPointer;
 		}
+
+		//because of swapping the variables
 		__syncthreads();
 	}
 
-	//swap back - sharedCurState should hold the final result
-
-	__syncthreads();
-
 	//Prepare the Solver for reusage
+	//sharedCurState should hold the final result
 	if (threadIdx.x == 0) {
 		if (curStatePtr != sharedCurState) {
 			sharedPrevState = sharedCurState;
@@ -170,6 +158,7 @@ __device__ void Solver::solve() {
 		//else all is OK
 	}
 
+	//because of the possible swapping of the variables
 	__syncthreads();
 
 #ifdef DEBUG_CONTINUOUS
@@ -189,6 +178,8 @@ __device__ void Solver::solve() {
 __device__ inline void Solver::parallelMakeJump() {
 //then a jump is occurred between t(i) and t(i+1)
 //let's suppose it was at time t(i)
+
+	__syncthreads();
 
 #ifdef DEBUG_JUMPS
 	print(consoleStream, "State at the jump moment", sharedPrevState, basisSize);
@@ -255,6 +246,7 @@ __device__ inline void Solver::parallelMakeJump() {
 		}
 	}
 
+	//because of the argument
 	__syncthreads();
 
 	parallelCopy((*sharedPointerPtr), sharedCurState);
@@ -264,18 +256,16 @@ __device__ inline void Solver::parallelMakeJump() {
 	print(consoleStream, "State vector after the jump and normalization",
 			sharedCurState, basisSize);
 #endif
+
+	__syncthreads();
 }
 
 __device__ inline void Solver::parallelMultMatrixVector(
 		const CUDA_COMPLEX_TYPE * const matrix, const int rows,
 		const int columns, const CUDA_COMPLEX_TYPE * const vector,
 		CUDA_COMPLEX_TYPE * const result) {
-	//waiting for the main thread
 	__syncthreads();
-
 	multMatrixVector<BASIS_SIZE, CUDA_THREADS_PER_BLOCK, CUDA_MATRIX_VECTOR_ILP_COLUMN, CUDA_MATRIX_VECTOR_ILP_ROW>(matrix, vector, result);
-
-	//ensure result is ready
 	__syncthreads();
 }
 
@@ -284,14 +274,8 @@ __device__ inline void Solver::parallelMultCSR3MatrixVector(
 		const int * const csr3MatrixColumns,
 		const int * const csr3MatrixRowIndex,
 		const CUDA_COMPLEX_TYPE * const vector, CUDA_COMPLEX_TYPE * result) {
-	//gather all threads
-	__syncthreads();
-
 	multSparseMatrixVector<BASIS_SIZE, CUDA_THREADS_PER_BLOCK, CUDA_SPARSE_MATRIX_VECTOR_ILP_COLUMN>(csr3MatrixValues, csr3MatrixColumns,
 			csr3MatrixRowIndex, vector, result);
-
-	//ensure that the result is ready
-	__syncthreads();
 }
 
 __device__ inline FLOAT_TYPE Solver::calcNormSquare(
@@ -359,7 +343,7 @@ __device__ inline void Solver::parallelCalcV1PlusAlphaV2(
 __device__ inline void Solver::parallelCopy(
 		const CUDA_COMPLEX_TYPE * const source,
 		CUDA_COMPLEX_TYPE * const dest) {
-	//waiting for the main thread
+
 	__syncthreads();
 
 	//one block per cycle
@@ -374,7 +358,6 @@ __device__ inline void Solver::parallelCopy(
 		}
 	}
 
-	//ensure result is ready
 	__syncthreads();
 }
 
@@ -388,6 +371,7 @@ CUDA_COMPLEX_TYPE *sharedStateVector) {
 		*sharedFloatPtr = rsqrt(calcNormSquare(sharedStateVector));
 	}
 
+	//because of the argument
 	__syncthreads();
 
 	parallelCalcAlphaVector(*sharedFloatPtr, sharedStateVector,
