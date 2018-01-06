@@ -162,15 +162,15 @@ void createVector(const int vSize, CUDA_COMPLEX_TYPE * const vector,
 void calcResult(const uint vSize, const uint nRows,
 		const CUDA_COMPLEX_TYPE * const matrix,
 		const CUDA_COMPLEX_TYPE * const vector,
-		CUDA_COMPLEX_TYPE * const result) {
+		CUDA_COMPLEX_TYPE * const result, const bool conjugateV) {
 //Kahan's summation algorithm (https://en.wikipedia.org/wiki/Kahan_summation_algorithm)
 	for (uint i = 0; i < nRows; ++i) {
 		CUDA_COMPLEX_TYPE r = { 0, 0 };
 		CUDA_COMPLEX_TYPE c = { 0, 0 };
 		for (uint j = 0; j < vSize; ++j) {
 			CUDA_COMPLEX_TYPE y = { matrix[i * vSize + j].x * vector[j].x
-					- matrix[i * vSize + j].y * vector[j].y - c.x, matrix[i
-					* vSize + j].x * vector[j].y
+					- matrix[i * vSize + j].y * (conjugateV ? -vector[j].y : vector[j].y) - c.x, matrix[i
+					* vSize + j].x * (conjugateV ? -vector[j].y : vector[j].y)
 					+ matrix[i * vSize + j].y * vector[j].x - c.y };
 
 			CUDA_COMPLEX_TYPE t = { r.x + y.x, r.y + y.y };
@@ -190,7 +190,7 @@ void calcResult(const uint vSize, const uint nRows,
 void calcResult(const uint vSize, const uint * const checkRows,
 		const uint checkRowsSize, const CUDA_COMPLEX_TYPE * const matrix,
 		const CUDA_COMPLEX_TYPE * const vector,
-		CUDA_COMPLEX_TYPE * const result) {
+		CUDA_COMPLEX_TYPE * const result, const bool conjugateV) {
 	//Kahan's summation algorithm (https://en.wikipedia.org/wiki/Kahan_summation_algorithm)
 	for (uint i = 0; i < checkRowsSize; ++i) {
 		uint rowBegin = checkRows[i] * vSize;
@@ -199,8 +199,8 @@ void calcResult(const uint vSize, const uint * const checkRows,
 		CUDA_COMPLEX_TYPE c = { 0, 0 };
 		for (uint j = 0; j < vSize; ++j) {
 			CUDA_COMPLEX_TYPE y = { matrix[rowBegin + j].x * vector[j].x
-					- matrix[rowBegin + j].y * vector[j].y - c.x,
-					matrix[rowBegin + j].x * vector[j].y
+					- matrix[rowBegin + j].y * (conjugateV ? -vector[j].y : vector[j].y) - c.x,
+					matrix[rowBegin + j].x * (conjugateV ? -vector[j].y : vector[j].y)
 							+ matrix[rowBegin + j].y * vector[j].x - c.y };
 
 			CUDA_COMPLEX_TYPE t = { r.x + y.x, r.y + y.y };
@@ -220,17 +220,18 @@ void calcResult(const uint vSize, const uint * const checkRows,
 std::string getCaseId(const uint size, const uint nWarpsPerBloc,
 		const uint ilpColumn, const uint ilpRow,
 		const _ValueFunctor &getMatrixValue,
-		const _ValueFunctor &getVectorValue) {
+		const _ValueFunctor &getVectorValue, const bool conjugateV) {
 	return std::string(
 			"size=" + std::to_string(size) + ", nWarps="
 					+ std::to_string(nWarpsPerBloc) + ". ilpColumn="
 					+ std::to_string(ilpColumn) + ", ilpRow="
 					+ std::to_string(ilpRow) + ", matrixValue="
 					+ getMatrixValue.getName() + ", vectorValue="
-					+ getVectorValue.getName());
+					+ getVectorValue.getName() + " conjugateV="
+					+ std::to_string(conjugateV));
 }
 
-template<uint size, uint nWarpsPerBlock, uint ilpColumn>
+template<uint size, uint nWarpsPerBlock, uint ilpColumn, bool conjugateV>
 void checkVectorVectorTestCase(const _ValueFunctor &getVectorValue1,
 		const _ValueFunctor &getVectorValue2) {
 
@@ -253,14 +254,14 @@ void checkVectorVectorTestCase(const _ValueFunctor &getVectorValue1,
 	checkCudaErrors(cudaMemcpy(v2DevPtr, v2, vSizet, cudaMemcpyHostToDevice));
 
 	CUDA_COMPLEX_TYPE expectedResult[1];
-	calcResult(vSize, 1, v1, v2, expectedResult);
+	calcResult(vSize, 1, v1, v2, expectedResult, conjugateV);
 
-	testMultVectorVector<vSize, nWarpsPerBlock * CUDA_WARP_SIZE, ilpColumn>(v1DevPtr,
-			v2DevPtr, actualResultDevPtr);
+	testMultVectorVector<vSize, nWarpsPerBlock * CUDA_WARP_SIZE, ilpColumn,
+			conjugateV>(v1DevPtr, v2DevPtr, actualResultDevPtr);
 
 	_checkDeviceState(
 			getCaseId(size, nWarpsPerBlock, ilpColumn, 1, getVectorValue1,
-					getVectorValue2), 1, actualResultDevPtr, expectedResult,
+					getVectorValue2, conjugateV), 1, actualResultDevPtr, expectedResult,
 			RIGHT_DIGITS);
 
 	cudaDeviceReset();
@@ -271,44 +272,56 @@ void checkVectorVectorTestCase(const _ValueFunctor &getVectorValue1,
 
 TEST (custommath, multVectorVector) {
 	//check simple cases
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_realOne { }, _realOne { });
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_realOne { }, _imagOne { });
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_imagOne { }, _realOne { });
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_imagOne { }, _imagOne { });
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_realOne { }, _realOne { });
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_realOne { }, _imagOne { });
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_imagOne { }, _realOne { });
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_imagOne { }, _imagOne { });
 
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_realIPercent2 { }, _realOne { });
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_imagIPercent2 { }, _realOne { });
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_realOne { }, _realIPercent2 { });
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_realOne { }, _imagIPercent2 { });
-
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_realJPercent2 { }, _realOne { });
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_imagJPercent2 { }, _realOne { });
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_realOne { }, _realJPercent2 { });
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_realOne { }, _imagJPercent2 { });
-
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_realIPercent2MultJPercent2 { },
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_realIPercent2 { },
 			_realOne { });
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_imagIPercent2MultJPercent2 { },
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_imagIPercent2 { },
 			_realOne { });
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_realOne { },
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_realOne { },
+			_realIPercent2 { });
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_realOne { },
+			_imagIPercent2 { });
+
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_realJPercent2 { },
+			_realOne { });
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_imagJPercent2 { },
+			_realOne { });
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_realOne { },
+			_realJPercent2 { });
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_realOne { },
+			_imagJPercent2 { });
+
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(
+			_realIPercent2MultJPercent2 { }, _realOne { });
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(
+			_imagIPercent2MultJPercent2 { }, _realOne { });
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_realOne { },
 			_realIPercent2MultJPercent2 { });
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_realOne { },
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_realOne { },
 			_imagIPercent2MultJPercent2 { });
 
 	//check ilp
-	checkVectorVectorTestCase<8 * 1024, 2, 1>(_vSizeMinusIvSizeMinusJ { },
+	checkVectorVectorTestCase<8 * 1024, 2, 1, true>(_vSizeMinusIvSizeMinusJ { },
 			_vSizeMinusIvSizeMinusJ { });
-	checkVectorVectorTestCase<8 * 1024, 2, 2>(_vSizeMinusIvSizeMinusJ { },
+	checkVectorVectorTestCase<8 * 1024, 2, 2, true>(_vSizeMinusIvSizeMinusJ { },
 			_vSizeMinusIvSizeMinusJ { });
 
 	//check remainings
-	checkVectorVectorTestCase<8 * 1024, 3, 1>(_vSizeMinusIvSizeMinusJ { },
+	checkVectorVectorTestCase<8 * 1024, 3, 1, true>(_vSizeMinusIvSizeMinusJ { },
 			_vSizeMinusIvSizeMinusJ { });
-	checkVectorVectorTestCase<8 * 1024, 2, 3>(_vSizeMinusIvSizeMinusJ { },
+	checkVectorVectorTestCase<8 * 1024, 2, 3, true>(_vSizeMinusIvSizeMinusJ { },
 			_vSizeMinusIvSizeMinusJ { });
+
+	//without conjugation
+	checkVectorVectorTestCase<8 * 1024, 2, 3, false>(
+			_vSizeMinusIvSizeMinusJ { }, _vSizeMinusIvSizeMinusJ { });
 }
 
-template<uint size, uint nWarpsPerBlock, uint ilpColumn, uint ilpRow>
+template<uint size, uint nWarpsPerBlock, uint ilpColumn, uint ilpRow, bool conjugateV>
 void checkMatrixVectorTestCase(const _ValueFunctor &getMatrixValue,
 		const _ValueFunctor &getVectorValue) {
 
@@ -339,10 +352,10 @@ void checkMatrixVectorTestCase(const _ValueFunctor &getMatrixValue,
 			* vSize / 4, vSize - 1 };
 
 	CUDA_COMPLEX_TYPE expectedResult[vSize];
-	calcResult(vSize, checkRows, checkRowsSize, matrix, vector, expectedResult);
+	calcResult(vSize, checkRows, checkRowsSize, matrix, vector, expectedResult, conjugateV);
 
-	testMultMatrixVector<vSize, CUDA_WARP_SIZE * nWarpsPerBlock, ilpColumn, ilpRow>(
-			matrixDevPtr, vectorDevPtr, actualResultDevPtr);
+	testMultMatrixVector<vSize, CUDA_WARP_SIZE * nWarpsPerBlock, ilpColumn,
+			ilpRow, conjugateV>(matrixDevPtr, vectorDevPtr, actualResultDevPtr);
 
 	CUDA_COMPLEX_TYPE * actualResult = new CUDA_COMPLEX_TYPE[vSize];
 	checkCudaErrors(
@@ -356,7 +369,7 @@ void checkMatrixVectorTestCase(const _ValueFunctor &getMatrixValue,
 
 	_checkState(
 			getCaseId(size, nWarpsPerBlock, ilpColumn, ilpRow, getMatrixValue,
-					getVectorValue), checkRowsSize, actualResultCheckElemets,
+					getVectorValue, conjugateV), checkRowsSize, actualResultCheckElemets,
 			expectedResult, RIGHT_DIGITS);
 
 	cudaDeviceReset();
@@ -368,47 +381,51 @@ void checkMatrixVectorTestCase(const _ValueFunctor &getMatrixValue,
 
 TEST (custommath, multMatrixVector) {
 	//check simple cases
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_realOne { }, _realOne { });
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_realOne { }, _imagOne { });
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_imagOne { }, _realOne { });
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_imagOne { }, _imagOne { });
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_realOne { }, _realOne { });
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_realOne { }, _imagOne { });
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_imagOne { }, _realOne { });
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_imagOne { }, _imagOne { });
 
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_realIPercent2 { }, _realOne { });
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_imagIPercent2 { }, _realOne { });
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_realOne { }, _realIPercent2 { });
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_realOne { }, _imagIPercent2 { });
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_realIPercent2 { }, _realOne { });
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_imagIPercent2 { }, _realOne { });
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_realOne { }, _realIPercent2 { });
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_realOne { }, _imagIPercent2 { });
 
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_realJPercent2 { }, _realOne { });
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_imagJPercent2 { }, _realOne { });
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_realOne { }, _realJPercent2 { });
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_realOne { }, _imagJPercent2 { });
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_realJPercent2 { }, _realOne { });
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_imagJPercent2 { }, _realOne { });
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_realOne { }, _realJPercent2 { });
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_realOne { }, _imagJPercent2 { });
 
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_realIPercent2MultJPercent2 { },
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_realIPercent2MultJPercent2 { },
 			_realOne { });
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_imagIPercent2MultJPercent2 { },
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_imagIPercent2MultJPercent2 { },
 			_realOne { });
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_realOne { },
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_realOne { },
 			_realIPercent2MultJPercent2 { });
-	checkMatrixVectorTestCase<1024, 2, 1, 1>(_realOne { },
+	checkMatrixVectorTestCase<1024, 2, 1, 1, false>(_realOne { },
 			_imagIPercent2MultJPercent2 { });
 
 	//check ilp
-	checkMatrixVectorTestCase<8 * 1024, 8, 1, 1>(_vSizeMinusIvSizeMinusJ { },
+	checkMatrixVectorTestCase<8 * 1024, 8, 1, 1, false>(_vSizeMinusIvSizeMinusJ { },
 			_vSizeMinusIvSizeMinusJ { });
-	checkMatrixVectorTestCase<8 * 1024, 8, 2, 1>(_vSizeMinusIvSizeMinusJ { },
+	checkMatrixVectorTestCase<8 * 1024, 8, 2, 1, false>(_vSizeMinusIvSizeMinusJ { },
 			_vSizeMinusIvSizeMinusJ { });
-	checkMatrixVectorTestCase<8 * 1024, 8, 1, 2>(_vSizeMinusIvSizeMinusJ { },
+	checkMatrixVectorTestCase<8 * 1024, 8, 1, 2, false>(_vSizeMinusIvSizeMinusJ { },
 			_vSizeMinusIvSizeMinusJ { });
 
 	//check remainings
-	checkMatrixVectorTestCase<8 * 1024, 12, 1, 1>(_vSizeMinusIvSizeMinusJ { },
+	checkMatrixVectorTestCase<8 * 1024, 12, 1, 1, false>(_vSizeMinusIvSizeMinusJ { },
 			_vSizeMinusIvSizeMinusJ { });
-	checkMatrixVectorTestCase<8 * 1024, 8, 3, 1>(_vSizeMinusIvSizeMinusJ { },
+	checkMatrixVectorTestCase<8 * 1024, 8, 3, 1, false>(_vSizeMinusIvSizeMinusJ { },
 			_vSizeMinusIvSizeMinusJ { });
-	checkMatrixVectorTestCase<8 * 1024, 8, 1, 3>(_vSizeMinusIvSizeMinusJ { },
+	checkMatrixVectorTestCase<8 * 1024, 8, 1, 3, false>(_vSizeMinusIvSizeMinusJ { },
 			_vSizeMinusIvSizeMinusJ { });
-	checkMatrixVectorTestCase<8 * 1024, 4, 3, 3>(_vSizeMinusIvSizeMinusJ { },
+	checkMatrixVectorTestCase<8 * 1024, 4, 3, 3, false>(_vSizeMinusIvSizeMinusJ { },
 			_vSizeMinusIvSizeMinusJ { });
+
+	//with conjugation
+	checkMatrixVectorTestCase<8 * 1024, 4, 3, 3, true>(_vSizeMinusIvSizeMinusJ { },
+				_vSizeMinusIvSizeMinusJ { });
 }
 
 template<uint size, uint nWarpsPerBlock, uint ilpColumn>
@@ -461,10 +478,11 @@ void checkSparseMatrixVectorTestCase(const _ValueFunctor &getMatrixValue,
 			* vSize / 4, vSize - 1 };
 
 	CUDA_COMPLEX_TYPE expectedResult[vSize];
-	calcResult(vSize, checkRows, checkRowsSize, matrix, vector, expectedResult);
+	calcResult(vSize, checkRows, checkRowsSize, matrix, vector, expectedResult, false);
 
 	testMultSparseMatrixVector<vSize, CUDA_WARP_SIZE * nWarpsPerBlock, ilpColumn>(
-			valuesDevPtr, columnsDevPtr, rowIndexDevPtr, vectorDevPtr, actualResultDevPtr);
+			valuesDevPtr, columnsDevPtr, rowIndexDevPtr, vectorDevPtr,
+			actualResultDevPtr);
 
 	CUDA_COMPLEX_TYPE * actualResult = new CUDA_COMPLEX_TYPE[vSize];
 	checkCudaErrors(
@@ -478,7 +496,7 @@ void checkSparseMatrixVectorTestCase(const _ValueFunctor &getMatrixValue,
 
 	_checkState(
 			getCaseId(size, nWarpsPerBlock, ilpColumn, 1, getMatrixValue,
-					getVectorValue), checkRowsSize, actualResultCheckElemets,
+					getVectorValue, false), checkRowsSize, actualResultCheckElemets,
 			expectedResult, RIGHT_DIGITS);
 
 	cudaDeviceReset();
@@ -498,15 +516,23 @@ TEST (custommath, multSparseMatrixVector) {
 	checkSparseMatrixVectorTestCase<1024, 2, 1>(_imagOne { }, _realOne { });
 	checkSparseMatrixVectorTestCase<1024, 2, 1>(_imagOne { }, _imagOne { });
 
-	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realIPercent2 { }, _realOne { });
-	checkSparseMatrixVectorTestCase<1024, 2, 1>(_imagIPercent2 { }, _realOne { });
-	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realOne { }, _realIPercent2 { });
-	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realOne { }, _imagIPercent2 { });
+	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realIPercent2 { },
+			_realOne { });
+	checkSparseMatrixVectorTestCase<1024, 2, 1>(_imagIPercent2 { },
+			_realOne { });
+	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realOne { },
+			_realIPercent2 { });
+	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realOne { },
+			_imagIPercent2 { });
 
-	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realJPercent2 { }, _realOne { });
-	checkSparseMatrixVectorTestCase<1024, 2, 1>(_imagJPercent2 { }, _realOne { });
-	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realOne { }, _realJPercent2 { });
-	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realOne { }, _imagJPercent2 { });
+	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realJPercent2 { },
+			_realOne { });
+	checkSparseMatrixVectorTestCase<1024, 2, 1>(_imagJPercent2 { },
+			_realOne { });
+	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realOne { },
+			_realJPercent2 { });
+	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realOne { },
+			_imagJPercent2 { });
 
 	checkSparseMatrixVectorTestCase<1024, 2, 1>(_realIPercent2MultJPercent2 { },
 			_realOne { });
@@ -524,8 +550,8 @@ TEST (custommath, multSparseMatrixVector) {
 			_vSizeMinusIvSizeMinusJ { });
 
 	//check remainings
-	checkSparseMatrixVectorTestCase<8 * 1024, 12, 1>(_vSizeMinusIvSizeMinusJ { },
-			_vSizeMinusIvSizeMinusJ { });
+	checkSparseMatrixVectorTestCase<8 * 1024, 12, 1>(
+			_vSizeMinusIvSizeMinusJ { }, _vSizeMinusIvSizeMinusJ { });
 	checkSparseMatrixVectorTestCase<8 * 1024, 8, 3>(_vSizeMinusIvSizeMinusJ { },
 			_vSizeMinusIvSizeMinusJ { });
 }

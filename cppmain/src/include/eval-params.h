@@ -91,7 +91,7 @@ static const uint CUDA_N_BLOCKS = 32;
 //Evaluation of each sample is performed beginning at 0s and ending at the end time.
 //Increasing the END_TIME value is necessary to caught the stationary evaluation
 //phase
-static const FLOAT_TYPE TIME_STEP_SIZE = 0.000001;
+static const FLOAT_TYPE TIME_STEP_SIZE = 0.00001;
 static const int TIME_STEPS_NUMBER = 1000;		//the total number of steps
 static const int MONTE_CARLO_SAMPLES_NUMBER = 128;
 

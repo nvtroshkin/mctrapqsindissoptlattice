@@ -46,6 +46,7 @@
 //GPU
 #define CUDA_COMPLEX_TYPE cuFloatComplex
 #define rsqrt(...) rsqrtf (__VA_ARGS__)
+#define cuSqrt(...) sqrtf (__VA_ARGS__)
 
 #endif
 
@@ -77,6 +78,7 @@
 //GPU
 #define CUDA_COMPLEX_TYPE cuDoubleComplex
 #define curand_uniform(...) curand_uniform_double (__VA_ARGS__)
+#define cuSqrt(...) sqrt (__VA_ARGS__)
 #endif
 
 #endif /* SRC_INCLUDE_PRECISION_DEFINITION_H_ */

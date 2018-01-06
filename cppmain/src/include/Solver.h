@@ -79,7 +79,7 @@ class Solver {
 			const CUDA_COMPLEX_TYPE &stateVectorNorm2,
 			CUDA_COMPLEX_TYPE *result);
 
-	__device__ FLOAT_TYPE calcNormSquare(const CUDA_COMPLEX_TYPE * const v);
+	__device__ FLOAT_TYPE parallelCalcNormSquare(const CUDA_COMPLEX_TYPE * const v);
 
 	__device__
 	void multiplyRow(uint rowsize, const int * const columnIndices,

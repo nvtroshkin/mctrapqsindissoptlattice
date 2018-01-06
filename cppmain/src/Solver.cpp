@@ -98,10 +98,11 @@ __device__ void Solver::solve() {
 		//if the state vector at t(i+1) has a less square of the norm then the threshold
 		//try a self-written norm?
 
+		FLOAT_TYPE norm2 = parallelCalcNormSquare(sharedCurState);
 		if (threadIdx.x == 0) {
-			*sharedFloatPtr = calcNormSquare(sharedCurState);
+			//because it is shared
+			*sharedFloatPtr = norm2;
 		}
-
 
 #ifdef DEBUG_JUMPS
 		LOG_IF_APPROPRIATE(
@@ -188,20 +189,19 @@ __device__ inline void Solver::parallelMakeJump() {
 //calculate vectors and their norms after each type of jump
 //the jump is made from the previous step state
 //(in the first cavity, in the second or in the third)
-	parallelMultCSR3MatrixVector(a1CSR3Values, a1CSR3Columns,
-			a1CSR3RowIndex, sharedPrevState, sharedK1);
-	parallelMultCSR3MatrixVector(a2CSR3Values, a2CSR3Columns,
-			a2CSR3RowIndex, sharedPrevState, sharedK2);
-	parallelMultCSR3MatrixVector(a3CSR3Values, a3CSR3Columns,
-			a3CSR3RowIndex, sharedPrevState, sharedK3);
+	parallelMultCSR3MatrixVector(a1CSR3Values, a1CSR3Columns, a1CSR3RowIndex,
+			sharedPrevState, sharedK1);
+	parallelMultCSR3MatrixVector(a2CSR3Values, a2CSR3Columns, a2CSR3RowIndex,
+			sharedPrevState, sharedK2);
+	parallelMultCSR3MatrixVector(a3CSR3Values, a3CSR3Columns, a3CSR3RowIndex,
+			sharedPrevState, sharedK3);
 
-	__syncthreads();
+	//only 0 thread will have the value
+	FLOAT_TYPE n12 = parallelCalcNormSquare(sharedK1);
+	FLOAT_TYPE n22 = parallelCalcNormSquare(sharedK2);
+	FLOAT_TYPE n32 = parallelCalcNormSquare(sharedK3);
 
 	if (threadIdx.x == 0) {
-		FLOAT_TYPE n12 = calcNormSquare(sharedK1);
-		FLOAT_TYPE n22 = calcNormSquare(sharedK2);
-		FLOAT_TYPE n32 = calcNormSquare(sharedK3);
-
 //calculate probabilities of each jump
 		FLOAT_TYPE n2Sum = n12 + n22 + n32;
 		FLOAT_TYPE p1 = n12 / n2Sum;
@@ -264,8 +264,13 @@ __device__ inline void Solver::parallelMultMatrixVector(
 		const CUDA_COMPLEX_TYPE * const matrix, const int rows,
 		const int columns, const CUDA_COMPLEX_TYPE * const vector,
 		CUDA_COMPLEX_TYPE * const result) {
+
 	__syncthreads();
-	multMatrixVector<BASIS_SIZE, CUDA_THREADS_PER_BLOCK, CUDA_MATRIX_VECTOR_ILP_COLUMN, CUDA_MATRIX_VECTOR_ILP_ROW>(matrix, vector, result);
+
+	multMatrixVector<BASIS_SIZE, CUDA_THREADS_PER_BLOCK,
+			CUDA_MATRIX_VECTOR_ILP_COLUMN, CUDA_MATRIX_VECTOR_ILP_ROW, false>(matrix,
+			vector, result);
+
 	__syncthreads();
 }
 
@@ -274,23 +279,33 @@ __device__ inline void Solver::parallelMultCSR3MatrixVector(
 		const int * const csr3MatrixColumns,
 		const int * const csr3MatrixRowIndex,
 		const CUDA_COMPLEX_TYPE * const vector, CUDA_COMPLEX_TYPE * result) {
-	multSparseMatrixVector<BASIS_SIZE, CUDA_THREADS_PER_BLOCK, CUDA_SPARSE_MATRIX_VECTOR_ILP_COLUMN>(csr3MatrixValues, csr3MatrixColumns,
-			csr3MatrixRowIndex, vector, result);
+
+	__syncthreads();
+
+	multSparseMatrixVector<BASIS_SIZE, CUDA_THREADS_PER_BLOCK,
+			CUDA_SPARSE_MATRIX_VECTOR_ILP_COLUMN>(csr3MatrixValues,
+			csr3MatrixColumns, csr3MatrixRowIndex, vector, result);
+
+	__syncthreads();
 }
 
-__device__ inline FLOAT_TYPE Solver::calcNormSquare(
+__device__ inline FLOAT_TYPE Solver::parallelCalcNormSquare(
 		const CUDA_COMPLEX_TYPE * const v) {
-	FLOAT_TYPE temp = 0.0;
-#pragma unroll 2
-	for (int i = 0; i < basisSize; ++i) {
-		//vary bad
-		temp += v[i].x * v[i].x + v[i].y * v[i].y;
-	}
+	__syncthreads();
 
-	//__syncthreads();
-//	multVectorVector(v, v, &temp);
-	//__syncthreads();
-	return temp;
+	CUDA_COMPLEX_TYPE temp;
+//#pragma unroll 2
+//	for (int i = 0; i < basisSize; ++i) {
+//		//vary bad
+//		temp += v[i].x * v[i].x + v[i].y * v[i].y;
+//	}
+
+	multVectorVector<BASIS_SIZE, CUDA_THREADS_PER_BLOCK,
+			CUDA_MATRIX_VECTOR_ILP_COLUMN, true>(v, v, &temp);
+
+	__syncthreads();
+
+	return temp.x;
 }
 
 __device__ inline void Solver::parallelCalcAlphaVector(const FLOAT_TYPE alpha,
@@ -367,8 +382,9 @@ CUDA_COMPLEX_TYPE *sharedStateVector) {
 	__syncthreads();
 
 //calculate norm
+	FLOAT_TYPE norm2 = parallelCalcNormSquare(sharedStateVector);
 	if (threadIdx.x == 0) {
-		*sharedFloatPtr = rsqrt(calcNormSquare(sharedStateVector));
+		*sharedFloatPtr = rsqrt(norm2);
 	}
 
 	//because of the argument

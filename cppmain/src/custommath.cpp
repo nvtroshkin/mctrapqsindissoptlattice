@@ -141,7 +141,8 @@ CUDA_COMPLEX_TYPE * const __restrict__ sdata, const uint baseRowIndex) {
 }
 
 template<uint startIndex, uint vSize, uint matrixSize, uint blockSize,
-		uint ilpColumn, uint multIlpColumnIlpRow, uint multIlpColumnBlockSize>
+		uint ilpColumn, uint multIlpColumnIlpRow, uint multIlpColumnBlockSize,
+		bool conjugateV>
 __device__ void ilpByColumnRemainings(const uint tid,
 		const CUDA_COMPLEX_TYPE * const __restrict__ matrix,
 		const CUDA_COMPLEX_TYPE * const __restrict__ vector,
@@ -187,6 +188,10 @@ __device__ void ilpByColumnRemainings(const uint tid,
 				CUDA_COMPLEX_TYPE rowValue = ilpRows[kr + kc];
 				CUDA_COMPLEX_TYPE vectorValue = ilpV[kc];
 
+				if (conjugateV) {
+					vectorValue.y = -vectorValue.y;
+				}
+
 				f1 += rowValue.x * vectorValue.x;
 				f1 -= rowValue.y * vectorValue.y;
 				f2 += rowValue.x * vectorValue.y;
@@ -200,7 +205,8 @@ __device__ void ilpByColumnRemainings(const uint tid,
 }
 
 template<uint endColumnIndex, uint vSize, uint blockSize, uint ilpColumn,
-		uint multIlpColumnIlpRow, uint multIlpColumnBlockSize>
+		uint multIlpColumnIlpRow, uint multIlpColumnBlockSize,
+		bool conjugateV>
 __device__ inline void ilpByColumn(const uint tid,
 		const CUDA_COMPLEX_TYPE * const __restrict__ matrix,
 		const CUDA_COMPLEX_TYPE * const __restrict__ vector,
@@ -247,6 +253,10 @@ __device__ inline void ilpByColumn(const uint tid,
 				CUDA_COMPLEX_TYPE rowValue = ilpRows[kr + kc];
 				CUDA_COMPLEX_TYPE vectorValue = ilpV[kc];
 
+				if (conjugateV) {
+					vectorValue.y = -vectorValue.y;
+				}
+
 				f1 += rowValue.x * vectorValue.x;
 				f1 -= rowValue.y * vectorValue.y;
 				f2 += rowValue.x * vectorValue.y;
@@ -262,7 +272,8 @@ __device__ inline void ilpByColumn(const uint tid,
 template<uint startRowIndex, uint lastKMRow, uint remainColumns,
 		uint endColumnIndex, uint vSize, uint blockSize, uint ilpColumn,
 		uint ilpRow, uint multIlpColumnIlpRow, uint multIlpColumnBlockSize,
-		uint multIlpRowBlockSize, uint extraThreads, uint reductionThreads>
+		uint multIlpRowBlockSize, uint extraThreads, uint reductionThreads,
+		bool conjugateV>
 __device__ inline void ilpByRowRemaining(const uint tid,
 		const CUDA_COMPLEX_TYPE * const __restrict__ matrix,
 		const CUDA_COMPLEX_TYPE * const __restrict__ vector,
@@ -275,7 +286,7 @@ __device__ inline void ilpByRowRemaining(const uint tid,
 
 	//the code could be as much as 10x slower if ILP by column doesn't fit the row size (perhaps, only if the ilp size is not a power of 2)
 	ilpByColumnRemainings<0, vSize, vSize * vSize, blockSize, ilpColumn,
-	multIlpColumnIlpRow, multIlpColumnBlockSize>(tid, matrix, vector,
+	multIlpColumnIlpRow, multIlpColumnBlockSize, conjugateV>(tid, matrix, vector,
 			sdata, lastKMRow);
 
 	gatherResults<vSize, blockSize, vSize - startRowIndex,
@@ -285,7 +296,8 @@ __device__ inline void ilpByRowRemaining(const uint tid,
 template<uint remainColumns, uint endColumnIndex, uint vSize, uint blockSize,
 		uint ilpColumn, uint ilpRow, uint multIlpColumnIlpRow,
 		uint multIlpColumnBlockSize, uint multIlpRowBlockSize,
-		uint extraThreads, uint reductionThreads>
+		uint extraThreads, uint reductionThreads,
+		bool conjugateV>
 __device__ inline void multRowVector(const uint tid,
 		const CUDA_COMPLEX_TYPE * const __restrict__ matrix,
 		const CUDA_COMPLEX_TYPE * const __restrict__ vector,
@@ -300,13 +312,13 @@ __device__ inline void multRowVector(const uint tid,
 	//the code could be as much as 10x slower if ILP by column doesn't fit the row size (perhaps, only if the ilp size is not a power of 2)
 	if(remainColumns) {
 		ilpByColumn<endColumnIndex,vSize, blockSize, ilpColumn, multIlpColumnIlpRow,
-		multIlpColumnBlockSize>(tid, matrix, vector, sdata, kmRow);
+		multIlpColumnBlockSize, conjugateV>(tid, matrix, vector, sdata, kmRow);
 
 		ilpByColumnRemainings<endColumnIndex, vSize, vSize*vSize, blockSize,
-		ilpColumn, multIlpColumnIlpRow, multIlpColumnBlockSize>(tid, matrix, vector, sdata, kmRow);
+		ilpColumn, multIlpColumnIlpRow, multIlpColumnBlockSize, conjugateV>(tid, matrix, vector, sdata, kmRow);
 	} else {
 		ilpByColumn<vSize,vSize, blockSize, ilpColumn, multIlpColumnIlpRow,
-		multIlpColumnBlockSize>(tid, matrix, vector, sdata, kmRow);
+		multIlpColumnBlockSize, conjugateV>(tid, matrix, vector, sdata, kmRow);
 	}
 
 	gatherResults<vSize, blockSize, ilpRow,
@@ -316,7 +328,8 @@ __device__ inline void multRowVector(const uint tid,
 template<uint endRowIndex, uint vSize, uint blockSize, uint ilpColumn,
 		uint ilpRow, uint multIlpColumnIlpRow, uint multIlpColumnBlockSize,
 		uint multIlpRowBlockSize, uint remainColumns, uint endColumnIndex,
-		uint kmRowInc, uint extraThreads, uint reductionThreads>
+		uint kmRowInc, uint extraThreads, uint reductionThreads,
+		bool conjugateV>
 __device__ inline void ilpByRowBase(const uint tid,
 		const CUDA_COMPLEX_TYPE * const __restrict__ matrix,
 		const CUDA_COMPLEX_TYPE * const __restrict__ vector,
@@ -327,7 +340,7 @@ __device__ inline void ilpByRowBase(const uint tid,
 			kmRowInc) {
 		multRowVector<remainColumns, endColumnIndex, vSize, blockSize,
 				ilpColumn, ilpRow, multIlpColumnIlpRow, multIlpColumnBlockSize,
-				multIlpRowBlockSize, extraThreads, reductionThreads>(tid,
+				multIlpRowBlockSize, extraThreads, reductionThreads, conjugateV>(tid,
 				matrix, vector, result, sdata, kmRow, row);
 	}
 }
@@ -344,8 +357,10 @@ __device__ constexpr uint getReductionThreads(const uint num) {
 	return getNearestPowerOf2(num);
 }
 
-template<uint vSize, uint blockSize, uint ilpColumn>
-__device__ void multVectorVector(const CUDA_COMPLEX_TYPE * __restrict__ const v1,
+template<uint vSize, uint blockSize, uint ilpColumn,
+bool conjugateV>
+__device__ void multVectorVector(
+		const CUDA_COMPLEX_TYPE * __restrict__ const v1,
 		const CUDA_COMPLEX_TYPE * __restrict__ const v2,
 		CUDA_COMPLEX_TYPE * __restrict__ const result) {
 
@@ -370,10 +385,11 @@ __device__ void multVectorVector(const CUDA_COMPLEX_TYPE * __restrict__ const v1
 
 	multRowVector<remainColumns, endColumnIndex, vSize, blockSize, ilpColumn, 1,
 			multIlpColumnIlpRow, multIlpColumnBlockSize, multIlpRowBlockSize,
-			extraThreads, reductionThreads>(tid, v1, v2, result, sdata, 0, 0);
+			extraThreads, reductionThreads, conjugateV>(tid, v1, v2, result, sdata, 0, 0);
 }
 
-template<uint vSize, uint blockSize, uint ilpColumn, uint ilpRow>
+template<uint vSize, uint blockSize, uint ilpColumn, uint ilpRow,
+bool conjugateV>
 __device__ void multMatrixVector(
 		const CUDA_COMPLEX_TYPE * __restrict__ const matrix,
 		const CUDA_COMPLEX_TYPE * __restrict__ const vector,
@@ -410,18 +426,18 @@ __device__ void multMatrixVector(
 		ilpByRowBase<endRowIndex, vSize, blockSize, ilpColumn, ilpRow,
 				multIlpColumnIlpRow, multIlpColumnBlockSize,
 				multIlpRowBlockSize, remainColumns, endColumnIndex, kmRowInc,
-				extraThreads, reductionThreads>(tid, matrix, vector, result,
+				extraThreads, reductionThreads, conjugateV>(tid, matrix, vector, result,
 				sdata);
 
 		ilpByRowRemaining<endRowIndex, lastKMRow, remainColumns, endColumnIndex,
 				vSize, blockSize, ilpColumn, ilpRow, multIlpColumnIlpRow,
 				multIlpColumnBlockSize, multIlpRowBlockSize, extraThreads,
-				reductionThreads>(tid, matrix, vector, result, sdata);
+				reductionThreads, conjugateV>(tid, matrix, vector, result, sdata);
 	} else {
 		ilpByRowBase<vSize, vSize, blockSize, ilpColumn, ilpRow,
 				multIlpColumnIlpRow, multIlpColumnBlockSize,
 				multIlpRowBlockSize, remainColumns, endColumnIndex, kmRowInc,
-				extraThreads, reductionThreads>(tid, matrix, vector, result,
+				extraThreads, reductionThreads, conjugateV>(tid, matrix, vector, result,
 				sdata);
 	}
 }

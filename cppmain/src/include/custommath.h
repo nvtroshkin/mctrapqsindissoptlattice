@@ -10,12 +10,14 @@
 
 #include "precision-definition.h"
 
-template<uint vSize, uint blockSize, uint ilpColumn>
-__device__ void multVectorVector(const CUDA_COMPLEX_TYPE * __restrict__ const v1,
+template<uint vSize, uint blockSize, uint ilpColumn, bool conjugateV>
+__device__ void multVectorVector(
+		const CUDA_COMPLEX_TYPE * __restrict__ const v1,
 		const CUDA_COMPLEX_TYPE * __restrict__ const v2,
 		CUDA_COMPLEX_TYPE * __restrict__ const result);
 
-template<uint vSize, uint blockSize, uint ilpColumn, uint ilpRow>
+template<uint vSize, uint blockSize, uint ilpColumn, uint ilpRow,
+		bool conjugateV>
 __device__ void multMatrixVector(
 		const CUDA_COMPLEX_TYPE * __restrict__ const matrix,
 		const CUDA_COMPLEX_TYPE * __restrict__ const vector,
