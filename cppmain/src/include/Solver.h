@@ -23,9 +23,9 @@ class Solver {
 	const int basisSize;
 
 #ifdef L_SPARSE
-	__restrict__ const CSR3Matrix * const lCSR3;
+	const CSR3Matrix * const __restrict__ lCSR3;
 #else
-	__restrict__ const CUDA_COMPLEX_TYPE * const rungeKuttaOperator;
+	const CUDA_COMPLEX_TYPE * const __restrict__ rungeKuttaOperator;
 #endif
 
 	const int a1CSR3RowsNum;
@@ -47,23 +47,23 @@ class Solver {
 	curandStateMRG32k3a_t randomGeneratorState;
 
 	// shared via block mutables
-	FLOAT_TYPE * const sharedNormThresholdPtr;
+	FLOAT_TYPE * const __restrict__ sharedNormThresholdPtr;
 
-	FLOAT_TYPE * const sharedFloatPtr;
+	FLOAT_TYPE * const __restrict__ sharedFloatPtr;
 
-	CUDA_COMPLEX_TYPE ** const sharedPointerPtr;
+	CUDA_COMPLEX_TYPE ** const __restrict__ sharedPointerPtr;
 
-	CUDA_COMPLEX_TYPE * const sharedK1;
+	CUDA_COMPLEX_TYPE * const __restrict__ sharedK1;
 
-	CUDA_COMPLEX_TYPE * const sharedK2;
+	CUDA_COMPLEX_TYPE * const __restrict__ sharedK2;
 
-	CUDA_COMPLEX_TYPE * const sharedK3;
+	CUDA_COMPLEX_TYPE * const __restrict__ sharedK3;
 
-	CUDA_COMPLEX_TYPE * const sharedK4;
+	CUDA_COMPLEX_TYPE * const __restrict__ sharedK4;
 
-	CUDA_COMPLEX_TYPE * sharedPrevState;
+	CUDA_COMPLEX_TYPE * __restrict__ sharedPrevState;
 
-	CUDA_COMPLEX_TYPE * sharedCurState;
+	CUDA_COMPLEX_TYPE * __restrict__ sharedCurState;
 
 //------------------Declarations-----------------------
 
@@ -71,24 +71,17 @@ class Solver {
 	void parallelCalcCurrentY();
 
 	__device__
-	void parallelMultLV(const CUDA_COMPLEX_TYPE * const vector,
-	CUDA_COMPLEX_TYPE *result);
+	void parallelMultLV(const CUDA_COMPLEX_TYPE * const __restrict__ vector,
+	CUDA_COMPLEX_TYPE * __restrict__ result);
+
+	static
+	__device__ FLOAT_TYPE parallelCalcNormSquare(const CUDA_COMPLEX_TYPE * const __restrict__ v);
 
 	__device__
-	void normalizeVector(CUDA_COMPLEX_TYPE *stateVector,
-			const CUDA_COMPLEX_TYPE &stateVectorNorm2,
-			CUDA_COMPLEX_TYPE *result);
-
-	__device__ FLOAT_TYPE parallelCalcNormSquare(const CUDA_COMPLEX_TYPE * const v);
-
-	__device__
-	void multiplyRow(uint rowsize, const int * const columnIndices,
-			const CUDA_COMPLEX_TYPE * const matrixValues,
-			const CUDA_COMPLEX_TYPE * const vector,
+	void multiplyRow(uint rowsize, const int * const __restrict__ columnIndices,
+			const CUDA_COMPLEX_TYPE * const __restrict__ matrixValues,
+			const CUDA_COMPLEX_TYPE * const __restrict__ vector,
 			CUDA_COMPLEX_TYPE &result);
-
-	__device__
-	void printLog(const char * str);
 
 	__device__ FLOAT_TYPE getNextRandomFloat();
 
@@ -119,33 +112,35 @@ public:
 	void solve();
 
 	__device__
-	void parallelNormalizeVector(CUDA_COMPLEX_TYPE *stateVector);
+	void parallelNormalizeVector(CUDA_COMPLEX_TYPE * __restrict__ stateVector);
 
+	static
 	__device__
-	void parallelMultMatrixVector(const CUDA_COMPLEX_TYPE * const matrix,
+	void parallelMultMatrixVector(const CUDA_COMPLEX_TYPE * const __restrict__ matrix,
 			const int rows, const int columns,
-			const CUDA_COMPLEX_TYPE * const vector,
-			CUDA_COMPLEX_TYPE * const result);
+			const CUDA_COMPLEX_TYPE * const __restrict__ vector,
+			CUDA_COMPLEX_TYPE * const __restrict__ result);
+
+	static
+	__device__
+	void parallelMultCSR3MatrixVector(const CUDA_COMPLEX_TYPE * const __restrict__ csr3MatrixValues,
+			const int * const __restrict__ csr3MatrixColumns,
+			const int * const __restrict__ csr3MatrixRowIndex,
+			const CUDA_COMPLEX_TYPE * const __restrict__ vector, CUDA_COMPLEX_TYPE * __restrict__ result);
 
 	__device__
-	void parallelMultCSR3MatrixVector(const CUDA_COMPLEX_TYPE * const csr3MatrixValues,
-			const int * const csr3MatrixColumns,
-			const int * const csr3MatrixRowIndex,
-			const CUDA_COMPLEX_TYPE * const vector, CUDA_COMPLEX_TYPE *result);
-
-	__device__
-	void parallelCopy(const CUDA_COMPLEX_TYPE * const source,
-	CUDA_COMPLEX_TYPE * const dest);
+	void parallelCopy(const CUDA_COMPLEX_TYPE * const __restrict__ source,
+	CUDA_COMPLEX_TYPE * const __restrict__ dest);
 
 	__device__
 	void parallelCalcAlphaVector(const FLOAT_TYPE alpha,
-			const CUDA_COMPLEX_TYPE * const vector,
-			CUDA_COMPLEX_TYPE * const result);
+			const CUDA_COMPLEX_TYPE * const __restrict__ vector,
+			CUDA_COMPLEX_TYPE * const __restrict__ result);
 
 	__device__
-	void parallelCalcV1PlusAlphaV2(const CUDA_COMPLEX_TYPE * const v1,
-			const FLOAT_TYPE alpha, const CUDA_COMPLEX_TYPE * const v2,
-			CUDA_COMPLEX_TYPE * const result);
+	void parallelCalcV1PlusAlphaV2(const CUDA_COMPLEX_TYPE * const __restrict__ v1,
+			const FLOAT_TYPE alpha, const CUDA_COMPLEX_TYPE * const __restrict__ v2,
+			CUDA_COMPLEX_TYPE * const __restrict__ result);
 
 	__device__
 	void parallelRungeKuttaStep();

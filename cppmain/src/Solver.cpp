@@ -59,9 +59,9 @@ __host__ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep,
  */
 __device__ void Solver::solve() {
 
-	CUDA_COMPLEX_TYPE * const curStatePtr = sharedCurState;
+	CUDA_COMPLEX_TYPE * const __restrict__ curStatePtr = sharedCurState;
 
-	CUDA_COMPLEX_TYPE * tempPointer;
+	CUDA_COMPLEX_TYPE * __restrict__ tempPointer;
 
 	//Only the first thread does all the job - others are used in fork regions only
 	//but they should go through the code to
@@ -261,9 +261,9 @@ __device__ inline void Solver::parallelMakeJump() {
 }
 
 __device__ inline void Solver::parallelMultMatrixVector(
-		const CUDA_COMPLEX_TYPE * const matrix, const int rows,
-		const int columns, const CUDA_COMPLEX_TYPE * const vector,
-		CUDA_COMPLEX_TYPE * const result) {
+		const CUDA_COMPLEX_TYPE * const __restrict__ matrix, const int rows,
+		const int columns, const CUDA_COMPLEX_TYPE * const __restrict__ vector,
+		CUDA_COMPLEX_TYPE * const __restrict__ result) {
 
 	__syncthreads();
 
@@ -275,10 +275,10 @@ __device__ inline void Solver::parallelMultMatrixVector(
 }
 
 __device__ inline void Solver::parallelMultCSR3MatrixVector(
-		const CUDA_COMPLEX_TYPE * const csr3MatrixValues,
-		const int * const csr3MatrixColumns,
-		const int * const csr3MatrixRowIndex,
-		const CUDA_COMPLEX_TYPE * const vector, CUDA_COMPLEX_TYPE * result) {
+		const CUDA_COMPLEX_TYPE * const __restrict__ csr3MatrixValues,
+		const int * const __restrict__ csr3MatrixColumns,
+		const int * const __restrict__ csr3MatrixRowIndex,
+		const CUDA_COMPLEX_TYPE * const __restrict__ vector, CUDA_COMPLEX_TYPE * __restrict__ result) {
 
 	__syncthreads();
 
@@ -290,7 +290,7 @@ __device__ inline void Solver::parallelMultCSR3MatrixVector(
 }
 
 __device__ inline FLOAT_TYPE Solver::parallelCalcNormSquare(
-		const CUDA_COMPLEX_TYPE * const v) {
+		const CUDA_COMPLEX_TYPE * const __restrict__ v) {
 	__syncthreads();
 
 	CUDA_COMPLEX_TYPE temp;
@@ -309,8 +309,8 @@ __device__ inline FLOAT_TYPE Solver::parallelCalcNormSquare(
 }
 
 __device__ inline void Solver::parallelCalcAlphaVector(const FLOAT_TYPE alpha,
-		const CUDA_COMPLEX_TYPE * const vector,
-		CUDA_COMPLEX_TYPE * const result) {
+		const CUDA_COMPLEX_TYPE * const __restrict__ vector,
+		CUDA_COMPLEX_TYPE * const __restrict__ result) {
 	//waiting for the main thread
 	__syncthreads();
 
@@ -332,9 +332,9 @@ __device__ inline void Solver::parallelCalcAlphaVector(const FLOAT_TYPE alpha,
 }
 
 __device__ inline void Solver::parallelCalcV1PlusAlphaV2(
-		const CUDA_COMPLEX_TYPE * const v1, const FLOAT_TYPE alpha,
-		const CUDA_COMPLEX_TYPE * const v2,
-		CUDA_COMPLEX_TYPE * const result) {
+		const CUDA_COMPLEX_TYPE * const __restrict__ v1, const FLOAT_TYPE alpha,
+		const CUDA_COMPLEX_TYPE * const __restrict__ v2,
+		CUDA_COMPLEX_TYPE * const __restrict__ result) {
 	//waiting for the main thread
 	__syncthreads();
 
@@ -356,8 +356,8 @@ __device__ inline void Solver::parallelCalcV1PlusAlphaV2(
 }
 
 __device__ inline void Solver::parallelCopy(
-		const CUDA_COMPLEX_TYPE * const source,
-		CUDA_COMPLEX_TYPE * const dest) {
+		const CUDA_COMPLEX_TYPE * const __restrict__ source,
+		CUDA_COMPLEX_TYPE * const __restrict__ dest) {
 
 	__syncthreads();
 
@@ -377,7 +377,7 @@ __device__ inline void Solver::parallelCopy(
 }
 
 __device__ inline void Solver::parallelNormalizeVector(
-CUDA_COMPLEX_TYPE *sharedStateVector) {
+CUDA_COMPLEX_TYPE * __restrict__ sharedStateVector) {
 
 	__syncthreads();
 
