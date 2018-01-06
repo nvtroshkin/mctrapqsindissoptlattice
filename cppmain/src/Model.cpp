@@ -39,8 +39,6 @@ Model::Model(uint atom1SSize, uint atom2SSize, uint atom3SSize,
 	a3InCSR3 = createCSR3Matrix(&Model::a3Complex, "A3");
 	a3PlusInCSR3 = createCSR3Matrix(&Model::a3PlusComplex, "A3Plus");
 
-	print(std::cout, "RowIndex", a1PlusInCSR3->rowIndex,10);
-
 #ifdef L_SPARSE
 	lInCSR3 = createCSR3Matrix(&Model::L, "L");
 #else

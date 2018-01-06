@@ -14,14 +14,7 @@
 void testSolverParallelNormalize(Solver * solverDevPtr, uint nThreadsPerBlock,
 CUDA_COMPLEX_TYPE * stateVectorDevPtr);
 
-void testSolverParallelMultMatrixVector(Solver * solverDevPtr,
-		uint nThreadsPerBlock, const CUDA_COMPLEX_TYPE * const matrixDevPtr,
-		const int rows, const int columns,
-		CUDA_COMPLEX_TYPE * stateVectorDevPtr,
-		CUDA_COMPLEX_TYPE * resultVectorDevPtr);
-
 void testSolverParallelMultCSR3MatrixVector(Solver * solverDevPtr,
-		uint nThreadsPerBlock, const int csr3MatrixRowsNum,
 		const CUDA_COMPLEX_TYPE * const csr3MatrixValuesDevPtr,
 		const int * const csr3MatrixColumnsDevPtr,
 		const int * const csr3MatrixRowIndexDevPtr,
@@ -42,10 +35,9 @@ void testSolverParallelCalcV1PlusAlphaV2(Solver * solverDevPtr,
 		const FLOAT_TYPE alpha, const CUDA_COMPLEX_TYPE * const v2,
 		CUDA_COMPLEX_TYPE * const result);
 
-void testSolverSolve(Solver * solverDevPtr, uint nThreadsPerBlock,
-		bool noJumps);
+void testSolverSolve(Solver * solverDevPtr, bool noJumps);
 
-void testSolverParallelMakeJump(Solver * solverDevPtr, uint nThreadsPerBlock,
-		FLOAT_TYPE randomNumber);
+void testSolverParallelMakeJump(Solver * solverDevPtr,
+FLOAT_TYPE randomNumber);
 
 #endif /* SRC_SOLVERTEST0_H_ */

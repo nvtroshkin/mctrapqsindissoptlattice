@@ -76,6 +76,8 @@ inline bool areEqualToNDigits(FLOAT_TYPE a, FLOAT_TYPE b, int nDigits) {
 
 inline bool areEqualToNDigits(CUDA_COMPLEX_TYPE a, CUDA_COMPLEX_TYPE b,
 		int nDigits) {
+	//compare modules
+//	return areEqualToNDigits(a.x * a.x + a.y*a.y, b.x * b.x + b.y*b.y, nDigits);
 	return areEqualToNDigits(a.x, b.x, nDigits)
 			&& areEqualToNDigits(a.y, b.y, nDigits);
 }

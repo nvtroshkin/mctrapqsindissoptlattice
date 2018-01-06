@@ -255,7 +255,7 @@ void checkVectorVectorTestCase(const _ValueFunctor &getVectorValue1,
 	CUDA_COMPLEX_TYPE expectedResult[1];
 	calcResult(vSize, 1, v1, v2, expectedResult);
 
-	testMultVectorVector<vSize, nWarpsPerBlock * WARP_SIZE, ilpColumn>(v1DevPtr,
+	testMultVectorVector<vSize, nWarpsPerBlock * CUDA_WARP_SIZE, ilpColumn>(v1DevPtr,
 			v2DevPtr, actualResultDevPtr);
 
 	_checkDeviceState(
@@ -341,7 +341,7 @@ void checkMatrixVectorTestCase(const _ValueFunctor &getMatrixValue,
 	CUDA_COMPLEX_TYPE expectedResult[vSize];
 	calcResult(vSize, checkRows, checkRowsSize, matrix, vector, expectedResult);
 
-	testMultMatrixVector<vSize, WARP_SIZE * nWarpsPerBlock, ilpColumn, ilpRow>(
+	testMultMatrixVector<vSize, CUDA_WARP_SIZE * nWarpsPerBlock, ilpColumn, ilpRow>(
 			matrixDevPtr, vectorDevPtr, actualResultDevPtr);
 
 	CUDA_COMPLEX_TYPE * actualResult = new CUDA_COMPLEX_TYPE[vSize];
@@ -463,7 +463,7 @@ void checkSparseMatrixVectorTestCase(const _ValueFunctor &getMatrixValue,
 	CUDA_COMPLEX_TYPE expectedResult[vSize];
 	calcResult(vSize, checkRows, checkRowsSize, matrix, vector, expectedResult);
 
-	testMultSparseMatrixVector<vSize, WARP_SIZE * nWarpsPerBlock, ilpColumn>(
+	testMultSparseMatrixVector<vSize, CUDA_WARP_SIZE * nWarpsPerBlock, ilpColumn>(
 			valuesDevPtr, columnsDevPtr, rowIndexDevPtr, vectorDevPtr, actualResultDevPtr);
 
 	CUDA_COMPLEX_TYPE * actualResult = new CUDA_COMPLEX_TYPE[vSize];

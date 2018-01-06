@@ -7,6 +7,7 @@
 
 #include <string>
 
+#include "system-constants.h"
 #include "definitions.h"
 #include "Model.h"
 #include "Solver.h"
@@ -137,151 +138,11 @@ TEST (Solver, parallelNormalizeVector) {
 	checkCudaErrors(cudaFree(vectorDevPtr));
 }
 
-TEST (Solver, parallelMultMatrixVector) {
-
-	const uint basisSize = 64;
-
-	Model model(2, 2, 2, 2, 2, 2, 1.0, 20.0, 50.0, 10.0, 0.1);
-	SolverContext solverContext(1, 1, 1, model);
-
-	CUDA_COMPLEX_TYPE vector[] = { { 0.002364389962054795, 0.1513209575715069 },
-			{ 0.00472877992410959, 0.1489565676094521 }, { 0.007093169886164386,
-					0.1465921776473973 }, { 0.00945755984821918,
-					0.1442277876853425 }, { 0.01182194981027398,
-					0.1418633977232877 }, { 0.01418633977232877,
-					0.1394990077612329 }, { 0.01655072973438356,
-					0.1371346177991781 }, { 0.01891511969643836,
-					0.1347702278371233 }, { 0.02127950965849315,
-					0.1324058378750685 }, { 0.02364389962054795,
-					0.1300414479130137 }, { 0.02600828958260275,
-					0.1276770579509589 }, { 0.02837267954465754,
-					0.1253126679889041 }, { 0.03073706950671233,
-					0.1229482780268493 }, { 0.03310145946876713,
-					0.1205838880647945 }, { 0.03546584943082193,
-					0.1182194981027398 }, { 0.03783023939287672,
-					0.1158551081406849 }, { 0.04019462935493151,
-					0.1134907181786302 }, { 0.04255901931698631,
-					0.1111263282165754 }, { 0.0449234092790411,
-					0.1087619382545206 }, { 0.0472877992410959,
-					0.1063975482924658 }, { 0.04965218920315069,
-					0.104033158330411 }, { 0.05201657916520549,
-					0.1016687683683562 }, { 0.0543809691272603,
-					0.0993043784063014 }, { 0.05674535908931508,
-					0.0969399884442466 }, { 0.05910974905136987,
-					0.0945755984821918 }, { 0.06147413901342467,
-					0.092211208520137 }, { 0.06383852897547947,
-					0.0898468185580822 }, { 0.06620291893753426,
-					0.0874824285960274 }, { 0.06856730889958905,
-					0.0851180386339726 }, { 0.07093169886164386,
-					0.0827536486719178 }, { 0.07329608882369865,
-					0.080389258709863 }, { 0.07566047878575343,
-					0.07802486874780823 }, { 0.07802486874780823,
-					0.07566047878575343 }, { 0.080389258709863,
-					0.07329608882369865 }, { 0.0827536486719178,
-					0.07093169886164386 }, { 0.0851180386339726,
-					0.06856730889958905 }, { 0.0874824285960274,
-					0.06620291893753426 }, { 0.0898468185580822,
-					0.06383852897547947 }, { 0.092211208520137,
-					0.06147413901342467 }, { 0.0945755984821918,
-					0.05910974905136987 }, { 0.0969399884442466,
-					0.05674535908931508 }, { 0.0993043784063014,
-					0.0543809691272603 }, { 0.1016687683683562,
-					0.05201657916520549 }, { 0.104033158330411,
-					0.04965218920315069 }, { 0.1063975482924658,
-					0.0472877992410959 }, { 0.1087619382545206,
-					0.0449234092790411 }, { 0.1111263282165754,
-					0.04255901931698631 }, { 0.1134907181786302,
-					0.04019462935493151 }, { 0.1158551081406849,
-					0.03783023939287672 }, { 0.1182194981027398,
-					0.03546584943082193 }, { 0.1205838880647945,
-					0.03310145946876713 }, { 0.1229482780268493,
-					0.03073706950671233 }, { 0.1253126679889041,
-					0.02837267954465754 }, { 0.1276770579509589,
-					0.02600828958260275 }, { 0.1300414479130137,
-					0.02364389962054795 }, { 0.1324058378750685,
-					0.02127950965849315 }, { 0.1347702278371233,
-					0.01891511969643836 }, { 0.1371346177991781,
-					0.01655072973438356 }, { 0.1394990077612329,
-					0.01418633977232877 }, { 0.1418633977232877,
-					0.01182194981027398 }, { 0.1442277876853425,
-					0.00945755984821918 }, { 0.1465921776473973,
-					0.007093169886164386 }, { 0.1489565676094521,
-					0.00472877992410959 }, { 0.1513209575715069,
-					0.002364389962054795 } };
-
-	CUDA_COMPLEX_TYPE expectedResultState[] = { { 32.91230827180275,
-			-40.85665854430685 }, { 1400.475462324296, -1427.334932293239 }, {
-			1398.931988557067, -1426.305949781753 }, { 762.4003805325232,
-			-881.323521087971 }, { 1372.102782779639, -1455.707611837896 }, {
-			2739.665936832133, -2842.185885586828 }, { 2738.122463064902,
-			-2841.156903075342 }, { 2101.590855040359, -2296.17447438156 }, {
-			1426.941497803552, -1394.513416595978 }, { 2794.504651856045,
-			-2780.991690344911 }, { 2792.961178088816, -2779.962707833424 }, {
-			2156.429570064273, -2234.980279139642 }, { 651.2702692920085,
-			-985.038905407481 }, { 2018.833423344502, -2371.517179156413 }, {
-			2017.289949577273, -2370.488196644927 }, { 1380.758341552729,
-			-1825.505767951145 }, { 1258.612064601009, -1569.198330016526 }, {
-			2626.175218653501, -2955.676603765458 }, { 2624.631744886273,
-			-2954.647621253972 }, { 1988.100136861729, -2409.66519256019 }, {
-			2597.802539108844, -2984.049283310116 }, { 3965.365693161338,
-			-4370.527557059047 }, { 3963.822219394108, -4369.498574547562 }, {
-			3327.290611369564, -3824.516145853779 }, { 2652.641254132757,
-			-2922.855088068199 }, { 4020.204408185251, -4309.33336181713 }, {
-			4018.660934418023, -4308.304379305643 }, { 3382.129326393479,
-			-3763.321950611862 }, { 1876.970025621214, -2513.380576879701 }, {
-			3244.533179673708, -3899.858850628631 }, { 3242.989705906479,
-			-3898.829868117146 }, { 2606.458097881934, -3353.847439423363 }, {
-			1541.93029346214, -1274.228387422387 }, { 2909.493447514635,
-			-2660.70666117132 }, { 2907.949973747404, -2659.677678659834 }, {
-			2271.418365722861, -2114.695249966051 }, { 2881.120767969976,
-			-2689.079340715979 }, { 4248.683922022471, -4075.557614464911 }, {
-			4247.140448255239, -4074.528631953423 }, { 3610.608840230698,
-			-3529.54620325964 }, { 2935.959482993889, -2627.885145474059 }, {
-			4303.522637046384, -4014.363419222993 }, { 4301.979163279155,
-			-4013.334436711506 }, { 3665.447555254611, -3468.352008017722 }, {
-			2160.288254482347, -2218.410634285562 }, { 3527.85140853484,
-			-3604.888908034494 }, { 3526.307934767609, -3603.859925523007 }, {
-			2889.776326743065, -3058.877496829226 }, { 209.7005830025942,
-			-1406.785546255028 }, { 1577.263737055088, -2793.26382000396 }, {
-			1575.720263287858, -2792.234837492474 }, { 939.188655263315,
-			-2247.252408798691 }, { 1548.89105751043, -2821.636499548617 }, {
-			2916.454211562924, -4208.114773297548 }, { 2914.910737795696,
-			-4207.085790786063 }, { 2278.37912977115, -3662.103362092281 }, {
-			1603.729772534344, -2760.4423043067 }, { 2971.292926586838,
-			-4146.920578055633 }, { 2969.749452819607, -4145.891595544145 }, {
-			2333.217844795065, -3600.909166850364 }, { 828.0585440228,
-			-2350.967793118202 }, { 2195.621698075293, -3737.446066867135 }, {
-			2194.078224308064, -3736.417084355647 }, { 1557.546616283521,
-			-3191.434655661865 } };
-
-	Solver * solverDevPtr = solverContext.createSolverDev(vector);
-	CUDA_COMPLEX_TYPE * vectorDevPtr = solverContext.transferState2Device(
-			vector);
-
-	CUDA_COMPLEX_TYPE resultState[basisSize];
-	CUDA_COMPLEX_TYPE * resultStateDevPtr = solverContext.transferState2Device(
-			resultState);
-
-	uint * nThreadsArray = _createNThreadsArray(basisSize);
-
-	CUDA_COMPLEX_TYPE * lDevPtr = solverContext.transferArray2Device(
-			model.getL(), basisSize * basisSize);
-	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
-		testSolverParallelMultMatrixVector(solverDevPtr, nThreadsArray[i],
-				lDevPtr, basisSize, basisSize, vectorDevPtr, resultStateDevPtr);
-		solverContext.transferState2Host(resultStateDevPtr, resultState);
-		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
-				resultState, expectedResultState, RIGHT_DIGITS);
-	}
-
-	cudaFree(lDevPtr);
-	delete[] nThreadsArray;
-	checkCudaErrors(cudaFree(vectorDevPtr));
-	checkCudaErrors(cudaFree(resultStateDevPtr));
-}
-
+//WARNING: this test depends on the system constants and eval params and could fail depending on their values
 TEST (Solver, parallelMultCSR3MatrixVector) {
 	const int basisSize = 64;
+
+	ASSERT_EQ(BASIS_SIZE, basisSize)<< "Test fails if main program basis size is not equal to " + std::to_string(basisSize) + ". Current BASIS_SIZE=" + std::to_string(BASIS_SIZE);
 
 	Model model(2, 2, 2, 2, 2, 2, 1.0, 20.0, 50.0, 10.0, 0.1);
 	SolverContext solverContext(1, 1, 1, model);
@@ -450,42 +311,35 @@ TEST (Solver, parallelMultCSR3MatrixVector) {
 	CUDA_COMPLEX_TYPE * resultStateDevPtr = solverContext.transferState2Device(
 			resultState);
 
-	uint * nThreadsArray = _createNThreadsArray(basisSize);
+	testSolverParallelMultCSR3MatrixVector(solverDevPtr,
+			solverContext.getA1CSR3ValuesDevPtr(),
+			solverContext.getA1CSR3ColumnsDevPtr(),
+			solverContext.getA1CSR3RowIndexDevPtr(), vectorDevPtr,
+			resultStateDevPtr);
+	solverContext.transferState2Host(resultStateDevPtr, resultState);
+	_checkState(
+			"check A1; nThreads = " + std::to_string(CUDA_THREADS_PER_BLOCK),
+			basisSize, resultState, expectedResultState1, RIGHT_DIGITS);
 
-	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
-		testSolverParallelMultCSR3MatrixVector(solverDevPtr, nThreadsArray[i],
-				solverContext.getA1CSR3RowsNum(),
-				solverContext.getA1CSR3ValuesDevPtr(),
-				solverContext.getA1CSR3ColumnsDevPtr(),
-				solverContext.getA1CSR3RowIndexDevPtr(), vectorDevPtr,
-				resultStateDevPtr);
-		solverContext.transferState2Host(resultStateDevPtr, resultState);
-		_checkState("check A1; nThreads = " + std::to_string(nThreadsArray[i]),
-				basisSize, resultState, expectedResultState1, RIGHT_DIGITS);
+	testSolverParallelMultCSR3MatrixVector(solverDevPtr,
+			solverContext.getA2CSR3ValuesDevPtr(),
+			solverContext.getA2CSR3ColumnsDevPtr(),
+			solverContext.getA2CSR3RowIndexDevPtr(), vectorDevPtr,
+			resultStateDevPtr);
+	solverContext.transferState2Host(resultStateDevPtr, resultState);
+	_checkState(
+			"check A2; nThreads = " + std::to_string(CUDA_THREADS_PER_BLOCK),
+			basisSize, resultState, expectedResultState2, RIGHT_DIGITS);
 
-		testSolverParallelMultCSR3MatrixVector(solverDevPtr, nThreadsArray[i],
-				solverContext.getA2CSR3RowsNum(),
-				solverContext.getA2CSR3ValuesDevPtr(),
-				solverContext.getA2CSR3ColumnsDevPtr(),
-				solverContext.getA2CSR3RowIndexDevPtr(), vectorDevPtr,
-				resultStateDevPtr);
-		solverContext.transferState2Host(resultStateDevPtr, resultState);
-		_checkState("check A2; nThreads = " + std::to_string(nThreadsArray[i]),
-				basisSize, resultState, expectedResultState2, RIGHT_DIGITS);
-
-		testSolverParallelMultCSR3MatrixVector(solverDevPtr, nThreadsArray[i],
-				solverContext.getA3CSR3RowsNum(),
-				solverContext.getA3CSR3ValuesDevPtr(),
-				solverContext.getA3CSR3ColumnsDevPtr(),
-				solverContext.getA3CSR3RowIndexDevPtr(), vectorDevPtr,
-				resultStateDevPtr);
-		solverContext.transferState2Host(resultStateDevPtr, resultState);
-		_checkState("check A3; nThreads = " + std::to_string(nThreadsArray[i]),
-				basisSize, resultState, expectedResultState3, RIGHT_DIGITS);
-
-	}
-
-	delete[] nThreadsArray;
+	testSolverParallelMultCSR3MatrixVector(solverDevPtr,
+			solverContext.getA3CSR3ValuesDevPtr(),
+			solverContext.getA3CSR3ColumnsDevPtr(),
+			solverContext.getA3CSR3RowIndexDevPtr(), vectorDevPtr,
+			resultStateDevPtr);
+	solverContext.transferState2Host(resultStateDevPtr, resultState);
+	_checkState(
+			"check A3; nThreads = " + std::to_string(CUDA_THREADS_PER_BLOCK),
+			basisSize, resultState, expectedResultState3, RIGHT_DIGITS);
 
 //	std::cout << "Values number: "
 //			<< model.getA1InCSR3()->rowIndex[solverContext.getA1CSR3RowsNum()]
@@ -936,8 +790,10 @@ TEST (Solver, parallelCalcV1PlusAlphaV2) {
  *
  */
 TEST (Solver, oneLargeStep) {
-
+	//WARNING: this test depends on the system constants and eval params and could fail depending on their values
 	const int basisSize = 64;
+
+	ASSERT_EQ(BASIS_SIZE, basisSize)<< "Test fails if main program basis size is not equal to " + std::to_string(basisSize) + ". Current BASIS_SIZE=" + std::to_string(BASIS_SIZE);
 
 	Model model(2, 2, 2, 2, 2, 2, 1.0, 20.0, 50.0, 2.0, 0.1);
 	SolverContext solverContext(1, 0.1, 1, model);
@@ -1017,19 +873,12 @@ TEST (Solver, oneLargeStep) {
 
 	CUDA_COMPLEX_TYPE ** results;
 
-	uint * nThreadsArray = _createNThreadsArray(basisSize);
-
-	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
-		testSolverSolve(solverDevPtr, nThreadsArray[i], true);
-		results = solverContext.getAllResults();
-		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
-				results[0], expectedResultState, RIGHT_DIGITS);
-		delete[] results[0];
-		delete[] results;
-
-	}
-
-	delete[] nThreadsArray;
+	testSolverSolve(solverDevPtr, true);
+	results = solverContext.getAllResults();
+	_checkState("nThreads = " + std::to_string(CUDA_THREADS_PER_BLOCK),
+			basisSize, results[0], expectedResultState, RIGHT_DIGITS);
+	delete[] results[0];
+	delete[] results;
 }
 
 /**
@@ -1049,8 +898,10 @@ TEST (Solver, oneLargeStep) {
  *
  */
 TEST (Solver, manyStepsNoJump) {
-
+	//WARNING: this test depends on the system constants and eval params and could fail depending on their values
 	const int basisSize = 64;
+
+	ASSERT_EQ(BASIS_SIZE, basisSize)<< "Test fails if main program basis size is not equal to " + std::to_string(basisSize) + ". Current BASIS_SIZE=" + std::to_string(BASIS_SIZE);
 
 	Model model(2, 2, 2, 2, 2, 2, 1.0, 20.0, 50.0, 2.0, 0.1);
 	SolverContext solverContext(1, 0.00001, 5000, model);
@@ -1128,19 +979,12 @@ TEST (Solver, manyStepsNoJump) {
 
 	CUDA_COMPLEX_TYPE ** results;
 
-	uint * nThreadsArray = _createNThreadsArray(basisSize);
-
-	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
-		testSolverSolve(solverDevPtr, nThreadsArray[i], true);
-		results = solverContext.getAllResults();
-		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
-				results[0], expectedResultState, RIGHT_DIGITS);
-		delete[] results[0];
-		delete[] results;
-
-	}
-
-	delete[] nThreadsArray;
+	testSolverSolve(solverDevPtr, true);
+	results = solverContext.getAllResults();
+	_checkState("nThreads = " + std::to_string(CUDA_THREADS_PER_BLOCK),
+			basisSize, results[0], expectedResultState, RIGHT_DIGITS);
+	delete[] results[0];
+	delete[] results;
 }
 
 /**
@@ -1157,8 +1001,10 @@ TEST (Solver, manyStepsNoJump) {
  *
  */
 TEST (Solver, makeJump) {
-
+	//WARNING: this test depends on the system constants and eval params and could fail depending on their values
 	const int basisSize = 64;
+
+	ASSERT_EQ(BASIS_SIZE, basisSize)<< "Test fails if main program basis size is not equal to " + std::to_string(basisSize) + ". Current BASIS_SIZE=" + std::to_string(BASIS_SIZE);
 
 	Model model(2, 2, 2, 2, 2, 2, 1.0, 20.0, 50.0, 30.0, 0.1);
 	SolverContext solverContext(1, 0.0001, 1000, model);
@@ -1341,36 +1187,29 @@ TEST (Solver, makeJump) {
 
 	Solver * solverDevPtr = solverContext.createSolverDev(stateBeforeJump);
 
-	uint * nThreadsArray = _createNThreadsArray(basisSize);
+	testSolverParallelMakeJump(solverDevPtr, 0.5);
+	CUDA_COMPLEX_TYPE ** results1 = solverContext.getAllResults();
+	_checkState(
+			"1st jump, nThreads = " + std::to_string(CUDA_THREADS_PER_BLOCK),
+			basisSize, results1[0], stateAfterJumpInSecond, RIGHT_DIGITS - 2);
+	delete[] results1[0];
+	delete[] results1;
 
-	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
-		testSolverParallelMakeJump(solverDevPtr, nThreadsArray[i], 0.5);
-		CUDA_COMPLEX_TYPE ** results1 = solverContext.getAllResults();
-		_checkState("1st jump, nThreads = " + std::to_string(nThreadsArray[i]),
-				basisSize, results1[0], stateAfterJumpInSecond,
-				RIGHT_DIGITS - 2);
-		delete[] results1[0];
-		delete[] results1;
+	testSolverParallelMakeJump(solverDevPtr, 0.1);
+	CUDA_COMPLEX_TYPE ** results2 = solverContext.getAllResults();
+	_checkState(
+			"2nd jump, nThreads = " + std::to_string(CUDA_THREADS_PER_BLOCK),
+			basisSize, results2[0], stateAfterJumpInFirst, RIGHT_DIGITS - 2);
+	delete[] results2[0];
+	delete[] results2;
 
-		testSolverParallelMakeJump(solverDevPtr, nThreadsArray[i], 0.1);
-		CUDA_COMPLEX_TYPE ** results2 = solverContext.getAllResults();
-		_checkState("2nd jump, nThreads = " + std::to_string(nThreadsArray[i]),
-				basisSize, results2[0], stateAfterJumpInFirst,
-				RIGHT_DIGITS - 2);
-		delete[] results2[0];
-		delete[] results2;
-
-		testSolverParallelMakeJump(solverDevPtr, nThreadsArray[i], 0.9);
-		CUDA_COMPLEX_TYPE ** results3 = solverContext.getAllResults();
-		_checkState("3rd jump, nThreads = " + std::to_string(nThreadsArray[i]),
-				basisSize, results3[0], stateAfterJumpInThird,
-				RIGHT_DIGITS - 2);
-		delete[] results3[0];
-		delete[] results3;
-
-	}
-
-	delete[] nThreadsArray;
+	testSolverParallelMakeJump(solverDevPtr, 0.9);
+	CUDA_COMPLEX_TYPE ** results3 = solverContext.getAllResults();
+	_checkState(
+			"3rd jump, nThreads = " + std::to_string(CUDA_THREADS_PER_BLOCK),
+			basisSize, results3[0], stateAfterJumpInThird, RIGHT_DIGITS - 2);
+	delete[] results3[0];
+	delete[] results3;
 }
 
 /**
@@ -1393,6 +1232,7 @@ TEST (Solver, makeJump) {
  *
  */
 TEST (Solver, severalJumps) {
+	//WARNING: this test depends on the system constants and eval params and could fail depending on their values
 
 	//	_randomNumbers[0] = 0.99; // a jump
 	//		_randomNumbers[1] = 0.5; // the second cavity wins
@@ -1404,8 +1244,10 @@ TEST (Solver, severalJumps) {
 
 	const int basisSize = 64;
 
+	ASSERT_EQ(BASIS_SIZE, basisSize)<< "Test fails if main program basis size is not equal to " + std::to_string(basisSize) + ". Current BASIS_SIZE=" + std::to_string(BASIS_SIZE);
+
 	Model model(2, 2, 2, 2, 2, 2, 1.0, 20.0, 50.0, 30.0, 0.1);
-	SolverContext solverContext(1, 0.00001, 1000, model);
+	SolverContext solverContext(1, 0.00001, 100000, model);
 
 	//the ground state
 	CUDA_COMPLEX_TYPE initialState[basisSize] = { { 1.0, 0.0 } };
@@ -1458,20 +1300,13 @@ TEST (Solver, severalJumps) {
 
 	CUDA_COMPLEX_TYPE ** results;
 
-	uint * nThreadsArray = _createNThreadsArray(basisSize);
-
-	for (int i = 0; i < N_THREADS_ARRAY_SIZE; ++i) {
-		solverContext.initAllSolvers(initialState);
-		testSolverSolve(solverDevPtr, nThreadsArray[i], false);
-		results = solverContext.getAllResults();
-//		print(std::cout, "result", results[0], basisSize);
-		_checkState("nThreads = " + std::to_string(nThreadsArray[i]), basisSize,
-				results[0], expectedResultState, RIGHT_DIGITS);
-		delete[] results[0];
-		delete[] results;
-
-	}
-
-	delete[] nThreadsArray;
+	solverContext.initAllSolvers(initialState);
+	testSolverSolve(solverDevPtr, false);
+	results = solverContext.getAllResults();
+		print(std::cout, "result", results[0], basisSize);
+	_checkState("nThreads = " + std::to_string(CUDA_THREADS_PER_BLOCK),
+			basisSize, results[0], expectedResultState, RIGHT_DIGITS);
+	delete[] results[0];
+	delete[] results;
 }
 

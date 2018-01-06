@@ -224,7 +224,7 @@ TEST (Model, a1Plus_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.a1Plus(i, j),
-					EqMatrixElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }
@@ -444,7 +444,7 @@ TEST (Model, a1_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.a1(i, j),
-					EqMatrixElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }
@@ -664,7 +664,7 @@ TEST (Model, sigma1Plus_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.sigma1Plus(i, j),
-					EqMatrixElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }
@@ -884,7 +884,7 @@ TEST (Model,sigma1Minus_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.sigma1Minus(i, j),
-					EqMatrixElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }
@@ -1104,7 +1104,7 @@ TEST (Model, a2Plus_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.a2Plus(i, j),
-					EqMatrixElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }
@@ -1324,7 +1324,7 @@ TEST (Model, a2_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.a2(i, j),
-					EqMatrixElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }
@@ -1544,7 +1544,7 @@ TEST (Model, sigma2Plus_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.sigma2Plus(i, j),
-					EqMatrixElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }
@@ -1764,7 +1764,7 @@ TEST (Model, sigma2Minus_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.sigma2Minus(i, j),
-					EqMatrixElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }
@@ -1984,7 +1984,7 @@ TEST (Model, a3Plus_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.a3Plus(i, j),
-					EqMatrixElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }
@@ -2204,7 +2204,7 @@ TEST (Model, a3_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.a3(i, j),
-					EqMatrixElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }
@@ -2424,7 +2424,7 @@ TEST (Model, sigma3Plus_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.sigma3Plus(i, j),
-					EqMatrixElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }
@@ -2644,7 +2644,7 @@ TEST (Model, sigma3Minus_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.sigma3Minus(i, j),
-					EqMatrixElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }
@@ -4146,7 +4146,7 @@ TEST (Model, L_matrixElements) {
 	for (int i = 0; i < basisSize; ++i) {
 		for (int j = 0; j < basisSize; ++j) {
 			ASSERT_THAT(model.L(i, j),
-					EqMatrixComplexElementAt(EXPECTED_RESULT, i, j, 8));
+					EqMatrixComplexElementAt(EXPECTED_RESULT, i, j, RIGHT_DIGITS));
 		}
 	}
 }

@@ -128,8 +128,7 @@ public:
 			CUDA_COMPLEX_TYPE * const result);
 
 	__device__
-	void parallelMultCSR3MatrixVector(const int csr3MatrixRowsNum,
-			const CUDA_COMPLEX_TYPE * const csr3MatrixValues,
+	void parallelMultCSR3MatrixVector(const CUDA_COMPLEX_TYPE * const csr3MatrixValues,
 			const int * const csr3MatrixColumns,
 			const int * const csr3MatrixRowIndex,
 			const CUDA_COMPLEX_TYPE * const vector, CUDA_COMPLEX_TYPE *result);

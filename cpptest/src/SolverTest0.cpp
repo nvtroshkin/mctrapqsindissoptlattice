@@ -7,59 +7,41 @@
 
 #include <cuda_runtime.h>
 #include "helper_cuda.h"
+#include "eval-params.h"
 
 __global__ void testSolverParallelNormalizeKernel(Solver * solverDevPtr,
-		CUDA_COMPLEX_TYPE * stateVectorDevPtr) {
+CUDA_COMPLEX_TYPE * stateVectorDevPtr) {
 	solverDevPtr->parallelNormalizeVector(stateVectorDevPtr);
 }
 
 void testSolverParallelNormalize(Solver * solverDevPtr, uint nThreadsPerBlock,
-		CUDA_COMPLEX_TYPE * stateVectorDevPtr) {
+CUDA_COMPLEX_TYPE * stateVectorDevPtr) {
 testSolverParallelNormalizeKernel<<<1, nThreadsPerBlock>>>(solverDevPtr, stateVectorDevPtr);
 
-			getLastCudaError("testSolverParallelNormalize");
-}
-
-__global__ void testSolverParallelMultMatrixVectorKernel(Solver * solverDevPtr,
-		const CUDA_COMPLEX_TYPE * const matrixDevPtr, const int rows,
-		const int columns, CUDA_COMPLEX_TYPE * stateVectorDevPtr,
-		CUDA_COMPLEX_TYPE * resultVectorDevPtr) {
-	solverDevPtr->parallelMultMatrixVector(matrixDevPtr, rows, columns,
-			stateVectorDevPtr, resultVectorDevPtr);
-}
-
-void testSolverParallelMultMatrixVector(Solver * solverDevPtr,
-		uint nThreadsPerBlock, const CUDA_COMPLEX_TYPE * const matrixDevPtr,
-		const int rows, const int columns,
-		CUDA_COMPLEX_TYPE * stateVectorDevPtr,
-		CUDA_COMPLEX_TYPE * resultVectorDevPtr) {
-testSolverParallelMultMatrixVectorKernel<<<1, nThreadsPerBlock>>>(solverDevPtr, matrixDevPtr, rows, columns, stateVectorDevPtr, resultVectorDevPtr);
-
-			getLastCudaError("testSolverParallelMultMatrixVector");
+				getLastCudaError("testSolverParallelNormalize");
 }
 
 __global__ void testSolverParallelMultCSR3MatrixVectorKernel(
-		Solver * solverDevPtr, const int csr3MatrixRowsNum,
+		Solver * solverDevPtr,
 		const CUDA_COMPLEX_TYPE * const csr3MatrixValuesDevPtr,
 		const int * const csr3MatrixColumnsDevPtr,
 		const int * const csr3MatrixRowIndexDevPtr,
 		CUDA_COMPLEX_TYPE *vectorDevPtr, CUDA_COMPLEX_TYPE *resultDevPtr) {
-	solverDevPtr->parallelMultCSR3MatrixVector(csr3MatrixRowsNum,
-			csr3MatrixValuesDevPtr, csr3MatrixColumnsDevPtr,
-			csr3MatrixRowIndexDevPtr, vectorDevPtr, resultDevPtr);
+	solverDevPtr->parallelMultCSR3MatrixVector(csr3MatrixValuesDevPtr,
+			csr3MatrixColumnsDevPtr, csr3MatrixRowIndexDevPtr, vectorDevPtr,
+			resultDevPtr);
 }
 
 void testSolverParallelMultCSR3MatrixVector(Solver * solverDevPtr,
-		uint nThreadsPerBlock, const int csr3MatrixRowsNum,
 		const CUDA_COMPLEX_TYPE * const csr3MatrixValuesDevPtr,
 		const int * const csr3MatrixColumnsDevPtr,
 		const int * const csr3MatrixRowIndexDevPtr,
 		CUDA_COMPLEX_TYPE *vectorDevPtr, CUDA_COMPLEX_TYPE *resultDevPtr) {
-testSolverParallelMultCSR3MatrixVectorKernel<<<1, nThreadsPerBlock>>>(solverDevPtr, csr3MatrixRowsNum,
+testSolverParallelMultCSR3MatrixVectorKernel<<<1, CUDA_THREADS_PER_BLOCK>>>(solverDevPtr,
 		csr3MatrixValuesDevPtr, csr3MatrixColumnsDevPtr, csr3MatrixRowIndexDevPtr,
 		vectorDevPtr, resultDevPtr);
 
-			getLastCudaError("testSolverParallelMultCSR3MatrixVector");
+				getLastCudaError("testSolverParallelMultCSR3MatrixVector");
 }
 
 __global__ void testSolverParallelCopyKernel(Solver * solverDevPtr,
@@ -73,7 +55,7 @@ void testSolverParallelCopy(Solver * solverDevPtr, uint nThreadsPerBlock,
 		CUDA_COMPLEX_TYPE * const dest) {
 testSolverParallelCopyKernel<<<1, nThreadsPerBlock>>>(solverDevPtr, source, dest);
 
-			getLastCudaError("testSolverParallelCopy");
+				getLastCudaError("testSolverParallelCopy");
 }
 
 __global__ void testSolverParallelCalcAlphaVectorKernel(Solver * solverDevPtr,
@@ -88,7 +70,7 @@ void testSolverParallelCalcAlphaVector(Solver * solverDevPtr,
 		CUDA_COMPLEX_TYPE * const result) {
 testSolverParallelCalcAlphaVectorKernel<<<1, nThreadsPerBlock>>>(solverDevPtr, alpha, vector, result);
 
-			getLastCudaError("testSolverParallelCalcAlphaVector");
+				getLastCudaError("testSolverParallelCalcAlphaVector");
 }
 
 __global__ void testSolverParallelCalcV1PlusAlphaV2Kernel(Solver * solverDevPtr,
@@ -103,7 +85,7 @@ void testSolverParallelCalcV1PlusAlphaV2(Solver * solverDevPtr,
 		CUDA_COMPLEX_TYPE * const result) {
 testSolverParallelCalcV1PlusAlphaV2Kernel<<<1, nThreadsPerBlock>>>(solverDevPtr, v1, alpha, v2,result);
 
-			getLastCudaError("testSolverParallelCalcV1PlusAlphaV2");
+				getLastCudaError("testSolverParallelCalcV1PlusAlphaV2");
 }
 
 __device__ void initRandomNumbersForTest(bool noJumps) {
@@ -126,6 +108,8 @@ __device__ void initRandomNumbersForTest(bool noJumps) {
 			_randomNumbers[6] = 0.0; // next threshold (impossible to reach)
 		}
 	}
+
+	__syncthreads();
 }
 
 __device__ void initRandomNumbersForTest(FLOAT_TYPE randomNumber) {
@@ -133,6 +117,8 @@ __device__ void initRandomNumbersForTest(FLOAT_TYPE randomNumber) {
 		_randomNumberCounter = 0;
 		_randomNumbers[0] = randomNumber;
 	}
+
+	__syncthreads();
 }
 
 __global__ void testSolverSolverKernel(Solver * solverDevPtr, bool noJumps) {
@@ -141,23 +127,22 @@ __global__ void testSolverSolverKernel(Solver * solverDevPtr, bool noJumps) {
 	solverDevPtr->solve();
 }
 
-void testSolverSolve(Solver * solverDevPtr, uint nThreadsPerBlock,
-		bool noJumps) {
-testSolverSolverKernel<<<1, nThreadsPerBlock>>>(solverDevPtr, noJumps);
+void testSolverSolve(Solver * solverDevPtr, bool noJumps) {
+testSolverSolverKernel<<<1, CUDA_THREADS_PER_BLOCK>>>(solverDevPtr, noJumps);
 
-			getLastCudaError("testSolverSolve");
+				getLastCudaError("testSolverSolve");
 }
 
 __global__ void testSolverParallelMakeJumpKernel(Solver * solverDevPtr,
-		FLOAT_TYPE randomNumber) {
+FLOAT_TYPE randomNumber) {
 	initRandomNumbersForTest(randomNumber);
 
 	solverDevPtr->parallelMakeJump();
 }
 
-void testSolverParallelMakeJump(Solver * solverDevPtr, uint nThreadsPerBlock,
-		FLOAT_TYPE randomNumber) {
-testSolverParallelMakeJumpKernel<<<1, nThreadsPerBlock>>>(solverDevPtr,randomNumber);
+void testSolverParallelMakeJump(Solver * solverDevPtr,
+FLOAT_TYPE randomNumber) {
+testSolverParallelMakeJumpKernel<<<1, CUDA_THREADS_PER_BLOCK>>>(solverDevPtr,randomNumber);
 
-			getLastCudaError("testSolverSolve");
+				getLastCudaError("testSolverSolve");
 }

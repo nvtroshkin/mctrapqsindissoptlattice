@@ -30,8 +30,13 @@
  *
  */
 TEST (MonteCarloSimulator, test) {
+	//WARNING: this test depends on the system constants and eval params and could fail depending on their values
+	const int basisSize = 64;
+
+	ASSERT_EQ(BASIS_SIZE, basisSize)<< "Test fails if main program basis size is not equal to " + std::to_string(basisSize) + ". Current BASIS_SIZE=" + std::to_string(BASIS_SIZE);
+
 	Model model(2, 2, 2, 2, 2, 2, 1.0, 20.0, 50.0, 30.0, 0.1);
-	MonteCarloSimulator monteCarloSimulator(64, model);
+	MonteCarloSimulator monteCarloSimulator(128, model);
 
 	uint nBlocks[3] = { 32, 64, 128 };
 
@@ -40,8 +45,8 @@ TEST (MonteCarloSimulator, test) {
 
 		std::cout << caseId << std::endl;
 
-		SimulationResult *result = monteCarloSimulator.simulate(0.00001, 1000,
-				128, nBlocks[i]);
+		SimulationResult *result = monteCarloSimulator.simulate(0.00001, 50000,
+				CUDA_THREADS_PER_BLOCK, nBlocks[i]);
 
 		const ImpreciseValue *firstCavityPhotons =
 				result->getFirstCavityPhotons();

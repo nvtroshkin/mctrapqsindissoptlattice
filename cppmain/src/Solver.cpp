@@ -3,12 +3,13 @@
  *      Author: fakesci
  */
 
+#include "curand_kernel.h"
+
 #include "include/precision-definition.h"
 #include "include/Solver.h"
 #include "include/eval-params.h"
-
-#include "curand_kernel.h"
-#include "math.h"
+#include "system-constants.h"
+#include "custommath.h"
 
 #if defined(DEBUG_CONTINUOUS) || defined(DEBUG_JUMPS)
 #include <utilities.h>
@@ -196,11 +197,11 @@ __device__ inline void Solver::parallelMakeJump() {
 //calculate vectors and their norms after each type of jump
 //the jump is made from the previous step state
 //(in the first cavity, in the second or in the third)
-	parallelMultCSR3MatrixVector(a1CSR3RowsNum, a1CSR3Values, a1CSR3Columns,
+	parallelMultCSR3MatrixVector(a1CSR3Values, a1CSR3Columns,
 			a1CSR3RowIndex, sharedPrevState, sharedK1);
-	parallelMultCSR3MatrixVector(a2CSR3RowsNum, a2CSR3Values, a2CSR3Columns,
+	parallelMultCSR3MatrixVector(a2CSR3Values, a2CSR3Columns,
 			a2CSR3RowIndex, sharedPrevState, sharedK2);
-	parallelMultCSR3MatrixVector(a3CSR3RowsNum, a3CSR3Values, a3CSR3Columns,
+	parallelMultCSR3MatrixVector(a3CSR3Values, a3CSR3Columns,
 			a3CSR3RowIndex, sharedPrevState, sharedK3);
 
 	__syncthreads();
@@ -272,36 +273,13 @@ __device__ inline void Solver::parallelMultMatrixVector(
 	//waiting for the main thread
 	__syncthreads();
 
-	//one block per cycle
-	const uint blocksPerVector = (columns - 1) / blockDim.x + 1;
-	uint index;
-	uint rowStartIndex;
-
-#pragma unroll
-	for (uint i = 0; i < blocksPerVector; ++i) {
-		index = threadIdx.x + i * blockDim.x;
-		if (index < rows) {
-			//clear the vector
-			result[index].x = 0.0;
-			result[index].y = 0.0;
-
-			rowStartIndex = index * columns;
-#pragma unroll
-			for (uint j = 0; j < columns; ++j) {
-				result[index].x += matrix[rowStartIndex + j].x * vector[j].x
-						- matrix[rowStartIndex + j].y * vector[j].y;
-				result[index].y += matrix[rowStartIndex + j].x * vector[j].y
-						+ matrix[rowStartIndex + j].y * vector[j].x;
-			}
-		}
-	}
+	multMatrixVector<BASIS_SIZE, CUDA_THREADS_PER_BLOCK, CUDA_MATRIX_VECTOR_ILP_COLUMN, CUDA_MATRIX_VECTOR_ILP_ROW>(matrix, vector, result);
 
 	//ensure result is ready
 	__syncthreads();
 }
 
 __device__ inline void Solver::parallelMultCSR3MatrixVector(
-		const int csr3MatrixRowsNum,
 		const CUDA_COMPLEX_TYPE * const csr3MatrixValues,
 		const int * const csr3MatrixColumns,
 		const int * const csr3MatrixRowIndex,
@@ -309,38 +287,11 @@ __device__ inline void Solver::parallelMultCSR3MatrixVector(
 	//gather all threads
 	__syncthreads();
 
-	//one block per cycle
-	const uint blocksPerVector = (basisSize - 1) / blockDim.x + 1;
-
-#pragma unroll
-	for (int i = 0; i < blocksPerVector; ++i) {
-		uint row = threadIdx.x + i * blockDim.x;
-		if (row < csr3MatrixRowsNum) {
-			uint row_begin = csr3MatrixRowIndex[row];
-			uint row_end = csr3MatrixRowIndex[row + 1];
-			multiplyRow(row_end - row_begin, csr3MatrixColumns + row_begin,
-					csr3MatrixValues + row_begin, vector, result[row]);
-		}
-	}
+	multSparseMatrixVector<BASIS_SIZE, CUDA_THREADS_PER_BLOCK, CUDA_SPARSE_MATRIX_VECTOR_ILP_COLUMN>(csr3MatrixValues, csr3MatrixColumns,
+			csr3MatrixRowIndex, vector, result);
 
 	//ensure that the result is ready
 	__syncthreads();
-}
-
-__device__ inline void Solver::multiplyRow(uint rowsize,
-		const int * const columnIndices,
-		const CUDA_COMPLEX_TYPE * const matrixValues,
-		const CUDA_COMPLEX_TYPE * const vector,
-		CUDA_COMPLEX_TYPE &result) {
-	result.x = 0.0;
-	result.y = 0.0;
-#pragma unroll
-	for (uint column = 0; column < rowsize; ++column) {
-		result.x += matrixValues[column].x * vector[columnIndices[column]].x
-				- matrixValues[column].y * vector[columnIndices[column]].y;
-		result.y += matrixValues[column].x * vector[columnIndices[column]].y
-				+ matrixValues[column].y * vector[columnIndices[column]].x;
-	}
 }
 
 __device__ inline FLOAT_TYPE Solver::calcNormSquare(
@@ -352,6 +303,9 @@ __device__ inline FLOAT_TYPE Solver::calcNormSquare(
 		temp += v[i].x * v[i].x + v[i].y * v[i].y;
 	}
 
+	//__syncthreads();
+//	multVectorVector(v, v, &temp);
+	//__syncthreads();
 	return temp;
 }
 

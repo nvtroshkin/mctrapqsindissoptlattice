@@ -25,6 +25,9 @@ static const int MIN_SAMPLES_BETWEEN_PROGRESS = 50;
  */
 //#define CHECK_SPARSITY
 
+static const uint CUDA_N_WARPS_PER_BLOCK = 1;
+
+static const uint CUDA_WARP_SIZE = 32;
 /**
  * Please, keep in mind that it is very GPU-specific. My GPU's multiprocessors can
  * hold only 1 warp (32 threads) at once, others can more (one thread - one core).
@@ -34,9 +37,12 @@ static const int MIN_SAMPLES_BETWEEN_PROGRESS = 50;
  * are processed by tiles (32 threads per warp and 8 cores per SM - should be multiple
  * of it too)
  */
-static const uint THREADS_PER_BLOCK = 64;
+static constexpr uint CUDA_THREADS_PER_BLOCK = CUDA_WARP_SIZE * CUDA_N_WARPS_PER_BLOCK;
 
-static const uint WARP_SIZE = 32;
+
+static const uint CUDA_MATRIX_VECTOR_ILP_COLUMN = 1;
+static const uint CUDA_MATRIX_VECTOR_ILP_ROW = 1;
+static const uint CUDA_SPARSE_MATRIX_VECTOR_ILP_COLUMN = 3;
 
 /**
  * One block = one trajectory. If it is small - there are many separate kernel
@@ -46,7 +52,7 @@ static const uint WARP_SIZE = 32;
  * It is better to have it as a factor of the samples number and as a multiple of SM's
  * number
  */
-static const uint N_BLOCKS = 32;
+static const uint CUDA_N_BLOCKS = 32;
 
 //Evaluation of each sample is performed beginning at 0s and ending at the end time.
 //Increasing the END_TIME value is necessary to caught the stationary evaluation

@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
 				model);
 
 		SimulationResult *result = monteCarloSimulator.simulate(TIME_STEP_SIZE,
-				TIME_STEPS_NUMBER, THREADS_PER_BLOCK, N_BLOCKS);
+				TIME_STEPS_NUMBER, CUDA_THREADS_PER_BLOCK, CUDA_N_BLOCKS);
 
 		ImpreciseValue *firstCavityPhotons = result->getFirstCavityPhotons();
 		cout << "Avg field photons in the first cavity: "
