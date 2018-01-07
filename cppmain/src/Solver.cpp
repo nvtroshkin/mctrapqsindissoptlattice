@@ -24,9 +24,6 @@ __host__ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep,
 		const CUDA_COMPLEX_TYPE * a3CSR3Values, const int * a3CSR3Columns,
 		const int * a3CSR3RowIndex,
 		//non-const
-		FLOAT_TYPE * sharedNormThresholdPtr,
-		FLOAT_TYPE * sharedFloatPtr,
-		CUDA_COMPLEX_TYPE ** sharedPointerPtr,
 		CUDA_COMPLEX_TYPE *sharedK1, CUDA_COMPLEX_TYPE *sharedK2,
 		CUDA_COMPLEX_TYPE *sharedK3, CUDA_COMPLEX_TYPE *sharedK4,
 		CUDA_COMPLEX_TYPE *sharedPrevState,
@@ -44,9 +41,7 @@ __host__ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep,
 						a2CSR3RowIndex), a3CSR3Values(a3CSR3Values), a3CSR3Columns(
 						a3CSR3Columns), a3CSR3RowIndex(a3CSR3RowIndex),
 				//shared
-				sharedNormThresholdPtr(sharedNormThresholdPtr), sharedFloatPtr(
-						sharedFloatPtr), sharedPointerPtr(sharedPointerPtr), sharedK1(
-						sharedK1), sharedK2(sharedK2), sharedK3(sharedK3), sharedK4(
+				sharedK1(sharedK1), sharedK2(sharedK2), sharedK3(sharedK3), sharedK4(
 						sharedK4), sharedPrevState(sharedPrevState), sharedCurState(
 						sharedCurState) {
 }
@@ -57,8 +52,10 @@ __host__ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep,
 __device__ void Solver::solve() {
 
 	CUDA_COMPLEX_TYPE * const __restrict__ curStatePtr = sharedCurState;
-
 	CUDA_COMPLEX_TYPE * __restrict__ tempPointer;
+
+	static __shared__ FLOAT_TYPE sharedNorm2Threshold;
+	static __shared__ FLOAT_TYPE sharedCurrentNorm2;
 
 	//Only the first thread does all the job - others are used in fork regions only
 	//but they should go through the code to
@@ -68,8 +65,10 @@ __device__ void Solver::solve() {
 				&randomGeneratorState);
 		//get a random number for the calculation of the random waiting time
 		//of the next jump
-		*sharedNormThresholdPtr = getNextRandomFloat();
+		sharedNorm2Threshold = getNextRandomFloat();
 	}
+
+	__syncthreads();
 
 	//Calculate each sample by the time axis
 	for (int i = 0; i < nTimeSteps; ++i) {
@@ -98,8 +97,10 @@ __device__ void Solver::solve() {
 		FLOAT_TYPE norm2 = parallelCalcNormSquare(sharedCurState);
 		if (threadIdx.x == 0) {
 			//because it is shared
-			*sharedFloatPtr = norm2;
+			sharedCurrentNorm2 = norm2;
 		}
+
+		__syncthreads();
 
 #ifdef DEBUG_JUMPS
 		LOG_IF_APPROPRIATE(
@@ -107,9 +108,7 @@ __device__ void Solver::solve() {
 				<< ", current = " << norm2<< endl);
 #endif
 
-		__syncthreads();
-
-		if (*sharedNormThresholdPtr > *sharedFloatPtr) {
+		if (sharedNorm2Threshold > sharedCurrentNorm2) {
 #ifdef DEBUG_JUMPS
 			consoleStream << "Jump" << endl;
 			consoleStream << "Step: " << i << endl;
@@ -120,9 +119,10 @@ __device__ void Solver::solve() {
 			parallelMakeJump();
 
 			if (threadIdx.x == 0) {
-				//update the random time
-				*sharedNormThresholdPtr = getNextRandomFloat();
+				sharedNorm2Threshold = getNextRandomFloat();
 			}
+
+			__syncthreads();
 
 #ifdef DEBUG_JUMPS
 			consoleStream << "New norm^2 threshold = " << svNormThreshold
@@ -198,6 +198,8 @@ __device__ inline void Solver::parallelMakeJump() {
 	FLOAT_TYPE n22 = parallelCalcNormSquare(sharedK2);
 	FLOAT_TYPE n32 = parallelCalcNormSquare(sharedK3);
 
+	static __shared__ CUDA_COMPLEX_TYPE * sharedStateAfterJump;
+
 	if (threadIdx.x == 0) {
 //calculate probabilities of each jump
 		FLOAT_TYPE n2Sum = n12 + n22 + n32;
@@ -225,28 +227,24 @@ __device__ inline void Solver::parallelMakeJump() {
 #ifdef DEBUG_JUMPS
 			consoleStream << "It jumped in the FIRST cavity" << endl;
 #endif
-			*sharedPointerPtr = sharedK1;
-			*sharedFloatPtr = n12;
+			sharedStateAfterJump = sharedK1;
 		} else if (rnd < p12) {
 #ifdef DEBUG_JUMPS
 			consoleStream << "Jumped in the SECOND cavity" << endl;
 #endif
-			*sharedPointerPtr = sharedK2;
-			*sharedFloatPtr = n22;
+			sharedStateAfterJump = sharedK2;
 		} else {
 #ifdef DEBUG_JUMPS
 			consoleStream << "Jumped in the THIRD cavity" << endl;
 #endif
 			//do not remove - it should be initialized (or cleared)
-			*sharedPointerPtr = sharedK3;
-			*sharedFloatPtr = n32;
+			sharedStateAfterJump = sharedK3;
 		}
 	}
 
-	//because of the argument
 	__syncthreads();
 
-	parallelCopy((*sharedPointerPtr), sharedCurState);
+	parallelCopy(sharedStateAfterJump, sharedCurState);
 	parallelNormalizeVector(sharedCurState);
 
 #ifdef DEBUG_JUMPS
@@ -362,17 +360,18 @@ CUDA_COMPLEX_TYPE * __restrict__ sharedStateVector) {
 
 	__syncthreads();
 
+	static __shared__ FLOAT_TYPE sharedFloat;
+
 //calculate norm
 	FLOAT_TYPE norm2 = parallelCalcNormSquare(sharedStateVector);
 	if (threadIdx.x == 0) {
-		*sharedFloatPtr = rsqrt(norm2);
+		sharedFloat = rsqrt(norm2);
 	}
 
 	//because of the argument
 	__syncthreads();
 
-	parallelCalcAlphaVector(*sharedFloatPtr, sharedStateVector,
-			sharedStateVector);
+	parallelCalcAlphaVector(sharedFloat, sharedStateVector, sharedStateVector);
 }
 
 #ifdef TEST_MODE

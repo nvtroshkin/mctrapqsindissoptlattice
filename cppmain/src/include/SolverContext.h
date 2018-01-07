@@ -46,10 +46,6 @@ class SolverContext {
 	std::vector<Solver *> * solverPtrs;
 	std::vector<Solver *> * solverDevPtrs;
 
-	std::vector<FLOAT_TYPE *> * svNormThresholdDevPtrs;
-	std::vector<FLOAT_TYPE *> * sharedFloatDevPtrs;
-	std::vector<CUDA_COMPLEX_TYPE **> * sharedPointerDevPtrs;
-
 	std::vector<CUDA_COMPLEX_TYPE *> * k1DevPtrs;
 	std::vector<CUDA_COMPLEX_TYPE *> * k2DevPtrs;
 	std::vector<CUDA_COMPLEX_TYPE *> * k3DevPtrs;

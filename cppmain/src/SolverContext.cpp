@@ -47,15 +47,6 @@ SolverContext::SolverContext(uint maxSolvers, FLOAT_TYPE timeStep,
 		uint nTimeSteps, Model &model) :
 		maxSolvers(maxSolvers), basisSize(model.getBasisSize()), timeStep(
 				timeStep), nTimeSteps(nTimeSteps) {
-	svNormThresholdDevPtrs = new std::vector<FLOAT_TYPE *>();
-	svNormThresholdDevPtrs->reserve(maxSolvers);
-
-	sharedFloatDevPtrs = new std::vector<FLOAT_TYPE *>();
-	sharedFloatDevPtrs->reserve(maxSolvers);
-
-	sharedPointerDevPtrs = new std::vector<CUDA_COMPLEX_TYPE **>();
-	sharedPointerDevPtrs->reserve(maxSolvers);
-
 	k1DevPtrs = new std::vector<CUDA_COMPLEX_TYPE *>();
 	k1DevPtrs->reserve(maxSolvers);
 
@@ -121,15 +112,6 @@ SolverContext::~SolverContext() {
 	freeDevicePtrs(solverDevPtrs);
 	delete solverDevPtrs;
 
-	freeDevicePtrs(svNormThresholdDevPtrs);
-	delete svNormThresholdDevPtrs;
-
-	freeDevicePtrs(sharedFloatDevPtrs);
-	delete sharedFloatDevPtrs;
-
-	freeDevicePtrs(sharedPointerDevPtrs);
-	delete sharedPointerDevPtrs;
-
 	freeDevicePtrs(k1DevPtrs);
 	delete k1DevPtrs;
 
@@ -151,24 +133,12 @@ SolverContext::~SolverContext() {
 
 Solver * SolverContext::createSolverDev(
 		const CUDA_COMPLEX_TYPE * const initialState) {
-	if (svNormThresholdDevPtrs->size() > maxSolvers) {
+	if (solverPtrs->size() > maxSolvers) {
 		throw std::out_of_range(
 				"Max solver number achieved - no more solvers may be created");
 	}
 
 	//block-locals : one per block
-	FLOAT_TYPE * svNormThresholdDevPtr;
-	checkCudaErrors(
-			cudaMalloc((void**) &svNormThresholdDevPtr, sizeof(FLOAT_TYPE)));
-
-	FLOAT_TYPE * sharedFloatDevPtr;
-	checkCudaErrors(
-			cudaMalloc((void**) &sharedFloatDevPtr, sizeof(FLOAT_TYPE)));
-
-	CUDA_COMPLEX_TYPE ** sharedPointerDevPtr;
-	checkCudaErrors(
-			cudaMalloc((void**) &sharedPointerDevPtr, sizeof(CUDA_COMPLEX_TYPE *)));
-
 	CUDA_COMPLEX_TYPE * k1DevPtr;
 	checkCudaErrors(
 			cudaMalloc((void**) &k1DevPtr, basisSize * sizeof(CUDA_COMPLEX_TYPE)));
@@ -195,10 +165,6 @@ Solver * SolverContext::createSolverDev(
 	checkCudaErrors(
 			cudaMalloc((void**) &curStateDevPtr, basisSize * sizeof(CUDA_COMPLEX_TYPE)));
 
-	svNormThresholdDevPtrs->push_back(svNormThresholdDevPtr);
-	sharedFloatDevPtrs->push_back(sharedFloatDevPtr);
-	sharedPointerDevPtrs->push_back(sharedPointerDevPtr);
-
 	k1DevPtrs->push_back(k1DevPtr);
 	k2DevPtrs->push_back(k2DevPtr);
 	k3DevPtrs->push_back(k3DevPtr);
@@ -213,7 +179,6 @@ Solver * SolverContext::createSolverDev(
 			a2CSR3ColumnsDevPtr, a2CSR3RowIndexDevPtr,
 			a3CSR3ValuesDevPtr, a3CSR3ColumnsDevPtr, a3CSR3RowIndexDevPtr,
 			//block-local
-			svNormThresholdDevPtr, sharedFloatDevPtr, sharedPointerDevPtr,
 			k1DevPtr, k2DevPtr, k3DevPtr, k4DevPtr, prevStateDevPtr,
 			curStateDevPtr);
 	solverPtrs->push_back(solver);

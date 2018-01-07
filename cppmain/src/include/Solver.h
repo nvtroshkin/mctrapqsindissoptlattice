@@ -49,12 +49,6 @@ class Solver {
 	curandStateMRG32k3a_t randomGeneratorState;
 
 	// shared via block mutables
-	FLOAT_TYPE * const __restrict__ sharedNormThresholdPtr;
-
-	FLOAT_TYPE * const __restrict__ sharedFloatPtr;
-
-	CUDA_COMPLEX_TYPE ** const __restrict__ sharedPointerPtr;
-
 	CUDA_COMPLEX_TYPE * const __restrict__ sharedK1;
 
 	CUDA_COMPLEX_TYPE * const __restrict__ sharedK2;
@@ -98,9 +92,6 @@ public:
 			const CUDA_COMPLEX_TYPE * a3CSR3Values, const int * a3CSR3Columns,
 			const int * a3CSR3RowIndex,
 			//non-const
-			FLOAT_TYPE * sharedNormThresholdPtr,
-			FLOAT_TYPE * sharedFloatPtr,
-			CUDA_COMPLEX_TYPE ** sharedPointerPtr,
 			CUDA_COMPLEX_TYPE *sharedK1, CUDA_COMPLEX_TYPE *sharedK2,
 			CUDA_COMPLEX_TYPE *sharedK3, CUDA_COMPLEX_TYPE *sharedK4,
 			CUDA_COMPLEX_TYPE *sharedPrevState,
