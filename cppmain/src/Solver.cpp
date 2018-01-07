@@ -18,12 +18,11 @@
 
 __host__ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep,
 		int nTimeSteps, const CUDA_COMPLEX_TYPE * rungeKuttaOperator,
-		int a1CSR3RowsNum, const CUDA_COMPLEX_TYPE * a1CSR3Values,
-		const int * a1CSR3Columns, const int * a1CSR3RowIndex,
-		int a2CSR3RowsNum, const CUDA_COMPLEX_TYPE * a2CSR3Values,
+		const CUDA_COMPLEX_TYPE * a1CSR3Values, const int * a1CSR3Columns,
+		const int * a1CSR3RowIndex, const CUDA_COMPLEX_TYPE * a2CSR3Values,
 		const int * a2CSR3Columns, const int * a2CSR3RowIndex,
-		int a3CSR3RowsNum, const CUDA_COMPLEX_TYPE * a3CSR3Values,
-		const int * a3CSR3Columns, const int * a3CSR3RowIndex,
+		const CUDA_COMPLEX_TYPE * a3CSR3Values, const int * a3CSR3Columns,
+		const int * a3CSR3RowIndex,
 		//non-const
 		FLOAT_TYPE * sharedNormThresholdPtr,
 		FLOAT_TYPE * sharedFloatPtr,
@@ -39,13 +38,11 @@ __host__ __device__ Solver::Solver(int basisSize, FLOAT_TYPE timeStep,
 #else
 				rungeKuttaOperator(rungeKuttaOperator)
 #endif
-						, a1CSR3RowsNum(a1CSR3RowsNum), a1CSR3Values(
-						a1CSR3Values), a1CSR3Columns(a1CSR3Columns), a1CSR3RowIndex(
-						a1CSR3RowIndex), a2CSR3RowsNum(a2CSR3RowsNum), a2CSR3Values(
+						, a1CSR3Values(a1CSR3Values), a1CSR3Columns(
+						a1CSR3Columns), a1CSR3RowIndex(a1CSR3RowIndex), a2CSR3Values(
 						a2CSR3Values), a2CSR3Columns(a2CSR3Columns), a2CSR3RowIndex(
-						a2CSR3RowIndex), a3CSR3RowsNum(a3CSR3RowsNum), a3CSR3Values(
-						a3CSR3Values), a3CSR3Columns(a3CSR3Columns), a3CSR3RowIndex(
-						a3CSR3RowIndex),
+						a2CSR3RowIndex), a3CSR3Values(a3CSR3Values), a3CSR3Columns(
+						a3CSR3Columns), a3CSR3RowIndex(a3CSR3RowIndex),
 				//shared
 				sharedNormThresholdPtr(sharedNormThresholdPtr), sharedFloatPtr(
 						sharedFloatPtr), sharedPointerPtr(sharedPointerPtr), sharedK1(
@@ -379,7 +376,7 @@ CUDA_COMPLEX_TYPE * __restrict__ sharedStateVector) {
 }
 
 #ifdef TEST_MODE
-__device__ FLOAT_TYPE _randomNumbers[1000] = { 0.0 };	// no jumps
+__device__ FLOAT_TYPE _randomNumbers[1000] = {0.0};	// no jumps
 
 __device__ uint _randomNumberCounter = 0;
 #endif

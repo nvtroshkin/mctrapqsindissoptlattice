@@ -30,19 +30,13 @@ class SolverContext {
 
 	CUDA_COMPLEX_TYPE *rungeKuttaOperatorDevPtr;
 
-	const int a1CSR3RowsNum;
-
 	CUDA_COMPLEX_TYPE * a1CSR3ValuesDevPtr;
 	int * a1CSR3ColumnsDevPtr;
 	int * a1CSR3RowIndexDevPtr;
 
-	const int a2CSR3RowsNum;
-
 	CUDA_COMPLEX_TYPE * a2CSR3ValuesDevPtr;
 	int * a2CSR3ColumnsDevPtr;
 	int * a2CSR3RowIndexDevPtr;
-
-	const int a3CSR3RowsNum;
 
 	CUDA_COMPLEX_TYPE * a3CSR3ValuesDevPtr;
 	int * a3CSR3ColumnsDevPtr;
@@ -214,10 +208,6 @@ inline const CUDA_COMPLEX_TYPE * SolverContext::getRungeKuttaOperatorDevPtr() {
 	return rungeKuttaOperatorDevPtr;
 }
 
-inline int SolverContext::getA1CSR3RowsNum() {
-	return a1CSR3RowsNum;
-}
-
 inline const CUDA_COMPLEX_TYPE * const SolverContext::getA1CSR3ValuesDevPtr() {
 	return a1CSR3ValuesDevPtr;
 }
@@ -230,10 +220,6 @@ inline const int * const SolverContext::getA1CSR3RowIndexDevPtr() {
 	return a1CSR3RowIndexDevPtr;
 }
 
-inline int SolverContext::getA2CSR3RowsNum() {
-	return a2CSR3RowsNum;
-}
-
 inline const CUDA_COMPLEX_TYPE * const SolverContext::getA2CSR3ValuesDevPtr() {
 	return a2CSR3ValuesDevPtr;
 }
@@ -244,10 +230,6 @@ inline const int * const SolverContext::getA2CSR3ColumnsDevPtr() {
 
 inline const int * const SolverContext::getA2CSR3RowIndexDevPtr() {
 	return a2CSR3RowIndexDevPtr;
-}
-
-inline int SolverContext::getA3CSR3RowsNum() {
-	return a3CSR3RowsNum;
 }
 
 inline const CUDA_COMPLEX_TYPE * const SolverContext::getA3CSR3ValuesDevPtr() {

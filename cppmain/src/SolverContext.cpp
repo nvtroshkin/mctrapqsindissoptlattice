@@ -46,10 +46,7 @@ CUDA_COMPLEX_TYPE ** valuesDevPtr, int ** columnsDevPtr,
 SolverContext::SolverContext(uint maxSolvers, FLOAT_TYPE timeStep,
 		uint nTimeSteps, Model &model) :
 		maxSolvers(maxSolvers), basisSize(model.getBasisSize()), timeStep(
-				timeStep), nTimeSteps(nTimeSteps), a1CSR3RowsNum(
-				model.getA1InCSR3()->rowsNumber), a2CSR3RowsNum(
-				model.getA2InCSR3()->rowsNumber), a3CSR3RowsNum(
-				model.getA3InCSR3()->rowsNumber) {
+				timeStep), nTimeSteps(nTimeSteps) {
 	svNormThresholdDevPtrs = new std::vector<FLOAT_TYPE *>();
 	svNormThresholdDevPtrs->reserve(maxSolvers);
 
@@ -211,9 +208,9 @@ Solver * SolverContext::createSolverDev(
 	curStateDevPtrs->push_back(curStateDevPtr);
 
 	Solver * solver = new Solver(basisSize, timeStep, nTimeSteps, rungeKuttaOperatorDevPtr,
-			a1CSR3RowsNum, a1CSR3ValuesDevPtr, a1CSR3ColumnsDevPtr,
-			a1CSR3RowIndexDevPtr, a2CSR3RowsNum, a2CSR3ValuesDevPtr,
-			a2CSR3ColumnsDevPtr, a2CSR3RowIndexDevPtr, a3CSR3RowsNum,
+			a1CSR3ValuesDevPtr, a1CSR3ColumnsDevPtr,
+			a1CSR3RowIndexDevPtr, a2CSR3ValuesDevPtr,
+			a2CSR3ColumnsDevPtr, a2CSR3RowIndexDevPtr,
 			a3CSR3ValuesDevPtr, a3CSR3ColumnsDevPtr, a3CSR3RowIndexDevPtr,
 			//block-local
 			svNormThresholdDevPtr, sharedFloatDevPtr, sharedPointerDevPtr,
